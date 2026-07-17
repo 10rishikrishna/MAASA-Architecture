@@ -10,7 +10,7 @@ import uvicorn
 
 from backend.config import settings
 from backend.database import init_db
-from backend.routers import auth_router, analyze_router, projects_router
+from backend.routers import auth_router, analyze_router, projects_router, chat_router
 
 
 # ── App Lifecycle ─────────────────────────────────────────────────────────────
@@ -62,6 +62,7 @@ app.add_middleware(
 app.include_router(auth_router.router,     prefix=settings.API_V1_STR)
 app.include_router(analyze_router.router,  prefix=settings.API_V1_STR)
 app.include_router(projects_router.router, prefix=settings.API_V1_STR)
+app.include_router(chat_router.router,     prefix=settings.API_V1_STR)
 
 
 # ── Health / Root ─────────────────────────────────────────────────────────────

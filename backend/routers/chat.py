@@ -8,7 +8,7 @@ from backend.database import get_db, User, Analysis, ChatHistory
 from backend.auth import get_current_user
 from backend.config import settings
 
-router = APIRouter(prefix="/api/v1/chat", tags=["Architecture Discussion Chat"])
+router = APIRouter(prefix="/chat", tags=["Architecture Discussion Chat"])
 
 class ChatMessageRequest(BaseModel):
     content: str

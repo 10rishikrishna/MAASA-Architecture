@@ -19,18 +19,20 @@ mermaid.initialize({
 
 let diagramCount = 0;
 
-interface Props { chart: string; }
+interface Props { chart?: string; diagram?: string; }
 
-export default function MermaidDiagram({ chart }: Props) {
+export function MermaidDiagram({ chart, diagram }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ref.current || !chart) return;
+    if (!ref.current) return;
+    const content = chart || diagram;
+    if (!content) return;
     const id = `mermaid-diagram-${++diagramCount}`;
     setError(null);
 
-    mermaid.render(id, chart)
+    mermaid.render(id, content)
       .then(({ svg }) => {
         if (ref.current) ref.current.innerHTML = svg;
       })
@@ -38,7 +40,7 @@ export default function MermaidDiagram({ chart }: Props) {
         setError(`Diagram render error: ${e.message}`);
         if (ref.current) ref.current.innerHTML = '';
       });
-  }, [chart]);
+  }, [chart, diagram]);
 
   if (error) return (
     <div className="code-block" style={{ color: 'var(--danger)', fontSize:'0.8rem' }}>{error}</div>
