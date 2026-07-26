@@ -1,8 +1,8 @@
 // src/pages/ProjectsPage.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, FolderOpen, ArrowLeft, MoreVertical, Edit, Trash2, Users, Globe, Lock, ChevronDown } from 'lucide-react';
-import { projectsApi, Project } from '../api/client';
+import { Plus, FolderOpen, ArrowLeft, Edit, Trash2, Users, Globe, Lock } from 'lucide-react';
+import { projectsApi, type Project } from '../api/client';
 import './ProjectsPage.css';
 
 export default function ProjectsPage() {

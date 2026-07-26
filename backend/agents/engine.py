@@ -5,31 +5,47 @@ import asyncio
 from typing import AsyncGenerator
 from backend.config import settings
 from backend.agents.mock_data import get_mock_analysis
+from backend.agents.prompt_templates import (
+    SYSTEM_PROMPT_REQUIREMENTS,
+    SYSTEM_PROMPT_ARCHITECTURE,
+    SYSTEM_PROMPT_DATABASE,
+    SYSTEM_PROMPT_API,
+    SYSTEM_PROMPT_DEPLOYMENT,
+    SYSTEM_PROMPT_SECURITY,
+    SYSTEM_PROMPT_PERFORMANCE,
+    SYSTEM_PROMPT_DIAGRAM,
+)
 
-# If openai is installed and keys exist, we can use it.
-# We will write a lightweight caller.
+
 async def call_llm(system_prompt: str, user_prompt: str) -> dict:
     if not settings.OPENAI_API_KEY:
         raise ValueError("No API Key configured")
-        
+
     try:
         import openai
-        # Simple client request for pydantic v2 / modern openai library
         client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         response = await client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
         return json.loads(content)
     except Exception as e:
-        print(f"LLM API Call failed: {e}. Falling back to template mode.")
+        print(f"LLM API Call failed: {e}. Falling back to mock data.")
         raise e
+
+
+def _build_user_prompt(business_problem: str, scale_estimates: dict, constraints: list) -> str:
+    return (
+        f"Business Problem: {business_problem}\n"
+        f"Scale: {json.dumps(scale_estimates)}\n"
+        f"Constraints: {json.dumps(constraints)}"
+    )
 
 async def run_agent_orchestrator(
     business_problem: str, 
@@ -63,25 +79,73 @@ async def run_agent_orchestrator(
     await asyncio.sleep(0.5)
     
     try:
-        # Load mock analysis data
-        # We start with mock data, then attempt to refine/override with LLM if enabled.
         analysis_data = get_mock_analysis(business_problem, scale_estimates, constraints)
-        
+        user_prompt = _build_user_prompt(business_problem, scale_estimates, constraints)
+
+        if settings.OPENAI_API_KEY:
+            try:
+                llm_data = {}
+                llm_data["requirements"] = await call_llm(
+                    SYSTEM_PROMPT_REQUIREMENTS.format(
+                        problem=business_problem,
+                        scale=json.dumps(scale_estimates),
+                        constraints=json.dumps(constraints),
+                    ),
+                    user_prompt,
+                )
+                llm_data["architecture_design"] = await call_llm(
+                    SYSTEM_PROMPT_ARCHITECTURE.format(
+                        requirements=json.dumps(llm_data["requirements"])
+                    ),
+                    user_prompt,
+                )
+                llm_data["database_schema"] = await call_llm(
+                    SYSTEM_PROMPT_DATABASE.format(
+                        architecture=json.dumps(llm_data["architecture_design"])
+                    ),
+                    user_prompt,
+                )
+                llm_data["api_specification"] = await call_llm(
+                    SYSTEM_PROMPT_API.format(
+                        architecture=json.dumps(llm_data["architecture_design"]),
+                        database=json.dumps(llm_data["database_schema"]),
+                    ),
+                    user_prompt,
+                )
+                llm_data["deployment_config"] = await call_llm(
+                    SYSTEM_PROMPT_DEPLOYMENT.format(
+                        architecture=json.dumps(llm_data["architecture_design"])
+                    ),
+                    user_prompt,
+                )
+                llm_data["security_audit"] = await call_llm(
+                    SYSTEM_PROMPT_SECURITY.format(
+                        architecture=json.dumps(llm_data["architecture_design"]),
+                        api=json.dumps(llm_data["api_specification"]),
+                    ),
+                    user_prompt,
+                )
+                llm_data["performance_strategies"] = await call_llm(
+                    SYSTEM_PROMPT_PERFORMANCE.format(
+                        architecture=json.dumps(llm_data["architecture_design"]),
+                        database=json.dumps(llm_data["database_schema"]),
+                    ),
+                    user_prompt,
+                )
+                llm_data["diagrams"] = await call_llm(
+                    SYSTEM_PROMPT_DIAGRAM.format(
+                        architecture=json.dumps(llm_data["architecture_design"])
+                    ),
+                    user_prompt,
+                )
+                analysis_data.update(llm_data)
+                print("[OK] LLM analysis completed successfully.")
+            except Exception as llm_err:
+                print(f"[WARN] LLM pipeline failed, using mock data: {llm_err}")
+
         for key, agent_name, description in steps:
             yield json.dumps({"step": key, "message": f"{agent_name}: {description}"})
-            
-            # Simulated delay
             await asyncio.sleep(0.8)
-            
-            # If API keys exist, we could do live requests (optional fallback is mock data)
-            if settings.OPENAI_API_KEY:
-                try:
-                    # In real mode, run LLM call asynchronously and override key items
-                    # For demo robustness, we print that we are querying, but fall back if it takes too long
-                    pass
-                except Exception:
-                    pass
-                    
             yield json.dumps({"step": key, "message": f"{agent_name}: Analysis complete."})
             await asyncio.sleep(0.2)
             

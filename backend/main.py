@@ -10,7 +10,16 @@ import uvicorn
 
 from backend.config import settings
 from backend.database import init_db
-from backend.routers import auth_router, analyze_router, projects_router, chat_router
+from backend.routers import (
+    auth_router,
+    analyze_router,
+    projects_router,
+    chat_router,
+    teams_router,
+    shares_router,
+    apikeys_router,
+    audit_router,
+)
 
 
 # ── App Lifecycle ─────────────────────────────────────────────────────────────
@@ -63,6 +72,10 @@ app.include_router(auth_router.router,     prefix=settings.API_V1_STR)
 app.include_router(analyze_router.router,  prefix=settings.API_V1_STR)
 app.include_router(projects_router.router, prefix=settings.API_V1_STR)
 app.include_router(chat_router.router,     prefix=settings.API_V1_STR)
+app.include_router(teams_router.router,    prefix=settings.API_V1_STR)
+app.include_router(shares_router.router,   prefix=settings.API_V1_STR)
+app.include_router(apikeys_router.router,  prefix=settings.API_V1_STR)
+app.include_router(audit_router.router,    prefix=settings.API_V1_STR)
 
 
 # ── Health / Root ─────────────────────────────────────────────────────────────

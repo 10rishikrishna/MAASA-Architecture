@@ -1,31 +1,30 @@
 // src/pages/DashboardPage.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Clock, CheckCircle, XCircle, ArrowRight, BarChart2, FolderOpen } from 'lucide-react';
-import { analyzeApi, AnalysisSummary } from '../api/client';
+import { analyzeApi, type AnalysisSummary } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import './DashboardPage.css';
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'completed') return <span className="badge badge-success"><CheckCircle size={10} /> Completed</span>;
-  if (status === 'failed')    return <span className="badge badge-danger"><XCircle size={10} /> Failed</span>;
+  if (status === 'failed') return <span className="badge badge-danger"><XCircle size={10} /> Failed</span>;
   return <span className="badge badge-warning"><div className="dot dot-pulse dot-warning" /> Processing</span>;
 }
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     analyzeApi.list(0, 10)
       .then(setAnalyses)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
-
-  const completed  = analyses.filter(a => a.status === 'completed').length;
+  }, [user]);
+  const completed = analyses.filter(a => a.status === 'completed').length;
   const processing = analyses.filter(a => a.status === 'processing').length;
 
   return (
@@ -42,25 +41,25 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid-4" style={{ marginBottom:'2rem' }}>
+      <div className="grid-4" style={{ marginBottom: '2rem' }}>
         <StatCard icon={<BarChart2 size={22} />} label="Total Analyses" value={analyses.length} color="accent" />
-        <StatCard icon={<CheckCircle size={22} />} label="Completed"    value={completed}        color="success" />
-        <StatCard icon={<Clock size={22} />}       label="Processing"   value={processing}       color="warning" />
-        <StatCard icon={<FolderOpen size={22} />}  label="Plan"         value={user?.plan ?? 'free'} color="info" isText />
+        <StatCard icon={<CheckCircle size={22} />} label="Completed" value={completed} color="success" />
+        <StatCard icon={<Clock size={22} />} label="Processing" value={processing} color="warning" />
+        <StatCard icon={<FolderOpen size={22} />} label="Plan" value={user?.plan ?? 'free'} color="info" isText />
       </div>
 
       {/* Recent Analyses */}
       <div className="card">
-        <div className="flex items-center justify-between" style={{ marginBottom:'1.25rem' }}>
-          <h2 className="text-lg" style={{ fontWeight:600 }}>Recent Analyses</h2>
+        <div className="flex items-center justify-between" style={{ marginBottom: '1.25rem' }}>
+          <h2 className="text-lg" style={{ fontWeight: 600 }}>Recent Analyses</h2>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/analyses')}>
             View all <ArrowRight size={14} />
           </button>
         </div>
 
         {loading ? (
-          <div style={{ display:'flex', justifyContent:'center', padding:'2rem' }}>
-            <div className="spinner" style={{ width:32, height:32 }} />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+            <div className="spinner" style={{ width: 32, height: 32 }} />
           </div>
         ) : analyses.length === 0 ? (
           <EmptyState onNew={() => navigate('/analyze/new')} />

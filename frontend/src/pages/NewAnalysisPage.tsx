@@ -1,8 +1,7 @@
 // src/pages/NewAnalysisPage.tsx
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Settings, Users, Database, Server, Shield, Zap as ZapIcon, GitBranch, FileText } from 'lucide-react';
-import { analyzeApi, AnalysisDetail } from '../api/client';
+import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Database, Server, Shield, Zap as ZapIcon, GitBranch, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './NewAnalysisPage.css';
 
@@ -30,7 +29,7 @@ export default function NewAnalysisPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [analysisId, setAnalysisId] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState<string>('init');
+  const [_currentStep, setCurrentStep] = useState<string>('init');
   const [stepStatus, setStepStatus] = useState<Record<string, 'pending' | 'active' | 'done' | 'error'>>({});
   const [events, setEvents] = useState<string[]>([]);
   const [completed, setCompleted] = useState(false);
@@ -231,7 +230,7 @@ export default function NewAnalysisPage() {
           </div>
 
           <div className="steps-timeline">
-            {STEPS.map((step, idx) => {
+            {STEPS.map((step) => {
               const status = stepStatus[step.id] || 'pending';
               const Icon = step.icon;
               return (
@@ -276,6 +275,3 @@ export default function NewAnalysisPage() {
   );
 }
 
-export function handleStreamEvent(event: any) {
-  // placeholder - actual handler inside component
-}

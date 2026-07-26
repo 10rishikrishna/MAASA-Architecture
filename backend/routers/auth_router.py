@@ -1,6 +1,7 @@
 # backend/routers/auth_router.py
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
@@ -113,3 +114,52 @@ def get_me(current_user: User = Depends(get_current_user)):
         plan=current_user.plan,
         profile_picture_url=current_user.profile_picture_url,
     )
+
+
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    profile_picture_url: Optional[str] = None
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_profile(
+    payload: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update the current user's profile."""
+    if payload.name is not None:
+        current_user.name = payload.name
+    if payload.profile_picture_url is not None:
+        current_user.profile_picture_url = payload.profile_picture_url
+    db.commit()
+    db.refresh(current_user)
+    return UserResponse(
+        user_id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        plan=current_user.plan,
+        profile_picture_url=current_user.profile_picture_url,
+    )
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change the current user's password."""
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect.",
+        )
+    current_user.password_hash = get_password_hash(payload.new_password)
+    db.commit()
+    return {"success": True, "message": "Password changed successfully."}

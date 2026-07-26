@@ -1,8 +1,9 @@
 # backend/routers/analyze_router.py
+import json
 import asyncio
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -195,3 +196,96 @@ def get_analysis(
         performance_strategies=analysis.performance_strategies,
         diagrams=analysis.diagrams,
     )
+
+
+@router.get("/{analysis_id}/export")
+def export_analysis(
+    analysis_id: str,
+    format: str = Query("markdown", pattern="^(markdown|json)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Export analysis as downloadable markdown or JSON."""
+    analysis = db.query(Analysis).filter(
+        Analysis.id == analysis_id,
+        Analysis.user_id == current_user.id,
+    ).first()
+
+    if not analysis or analysis.status != "completed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analysis not ready for export")
+
+    if format == "json":
+        data = {
+            "business_problem": analysis.business_problem,
+            "requirements": analysis.requirements,
+            "architecture_design": analysis.architecture_design,
+            "database_schema": analysis.database_schema,
+            "api_specification": analysis.api_specification,
+            "deployment_config": analysis.deployment_config,
+            "security_audit": analysis.security_audit,
+            "performance_strategies": analysis.performance_strategies,
+        }
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename=maasa-export-{analysis_id}.json"},
+        )
+
+    arch = analysis.architecture_design or {}
+    reqs = analysis.requirements or {}
+    db_schema = analysis.database_schema or {}
+    api = analysis.api_specification or {}
+    dep = analysis.deployment_config or {}
+
+    md = f"""# MAASA Architecture Design Report
+Generated for: {analysis.business_problem}
+Analysis ID: {analysis_id}
+Status: Completed in {analysis.analysis_time_seconds}s
+
+## 1. System Requirements
+### Functional
+"""
+    for r in reqs.get("functional", []):
+        md += f"- {r}\n"
+    md += "\n### Non-Functional\n"
+    for r in reqs.get("non_functional", []):
+        md += f"- {r}\n"
+
+    md += f"\n## 2. Architecture & Design Pattern\n**System Type:** {arch.get('system_type', 'N/A')}\n**Pattern:** {arch.get('pattern', 'N/A')}\n\n### Justification\n{arch.get('justification', '')}\n\n### Components\n"
+    for comp in arch.get("components", []):
+        md += f"- **{comp.get('name')}:** {comp.get('description')} *(Stack: {comp.get('technology')})*\n"
+
+    md += f"\n## 3. Database Design\n**Database Type:** {db_schema.get('database_type', 'N/A')}\n\n### Schemas\n"
+    for sc in db_schema.get("schemas", []):
+        md += f"#### Table: {sc.get('table_name')}\n```sql\n{sc.get('sql')}\n```\n"
+
+    md += f"\n## 4. API Specification\n**Protocol:** {api.get('protocol', 'N/A')}\n\n"
+    for ep in api.get("endpoints", []):
+        md += f"### `{ep.get('method')}` {ep.get('path')}\n*{ep.get('description')}*\n\n"
+
+    md += f"## 5. Infrastructure & Deployment\n**IaC Tool:** {dep.get('infrastructure_as_code', 'N/A')}\n**Orchestrator:** {dep.get('orchestration', 'N/A')}\n\n### Terraform Template\n```hcl\n{dep.get('terraform_sample', '')}\n```\n\n### Kubernetes Manifest\n```yaml\n{dep.get('kubernetes_manifest', '')}\n```\n"
+
+    return Response(
+        content=md,
+        media_type="text/markdown",
+        headers={"Content-Disposition": f"attachment; filename=maasa-export-{analysis_id}.md"},
+    )
+
+
+@router.delete("/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_analysis(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an analysis."""
+    analysis = db.query(Analysis).filter(
+        Analysis.id == analysis_id,
+        Analysis.user_id == current_user.id,
+    ).first()
+
+    if not analysis:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
+
+    db.delete(analysis)
+    db.commit()

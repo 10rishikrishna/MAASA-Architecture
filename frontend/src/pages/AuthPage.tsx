@@ -1,7 +1,7 @@
 // src/pages/AuthPage.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Cpu, Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
 import { authApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import './AuthPage.css';
@@ -75,7 +75,7 @@ export default function AuthPage() {
             <button className={`tab-btn ${mode==='register'?'active':''}`} onClick={() => { setMode('register'); setError(''); }}>Create Account</button>
           </div>
 
-          <form onSubmit={handleSubmit} className="auth-form">
+          <form onSubmit={handleSubmit} className="auth-form" aria-label="Authentication">
             {mode === 'register' && (
               <div className="form-group">
                 <label className="form-label">Full Name</label>

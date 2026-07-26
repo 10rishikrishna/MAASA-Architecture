@@ -1,20 +1,20 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi, UserProfile, AuthPayload } from '../api/client';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { authApi, type UserProfile, type AuthPayload } from '../api/client';
 
 interface AuthContextType {
   user: UserProfile | null;
   token: string | null;
   loading: boolean;
-  login:  (payload: AuthPayload) => void;
+  login: (payload: AuthPayload) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user,    setUser]    = useState<UserProfile | null>(null);
-  const [token,   setToken]   = useState<string | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,9 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(payload.access_token);
     setUser({
       user_id: payload.user_id,
-      name:    payload.name,
-      email:   payload.email,
-      plan:    payload.plan,
+      name: payload.name,
+      email: payload.email,
+      plan: payload.plan,
     });
   }
 
