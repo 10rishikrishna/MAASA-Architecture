@@ -6,15 +6,22 @@ mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
   themeVariables: {
-    background:       '#07070f',
-    primaryColor:     '#6366f1',
-    primaryTextColor: '#f0f0ff',
-    primaryBorderColor: '#6366f1',
-    lineColor:        '#9898b8',
-    secondaryColor:   '#14142a',
-    tertiaryColor:    '#0e0e1a',
+    background: '#0a0a16',
+    primaryColor: '#6366f1',
+    primaryTextColor: '#ffffff',
+    primaryBorderColor: '#818cf8',
+    lineColor: '#a5b4fc',
+    secondaryColor: '#1e1b4b',
+    tertiaryColor: '#111827',
+    nodeTextColor: '#ffffff',
+    mainBkg: '#1e1b4b',
+    clusterBkg: '#111827',
+    clusterBorder: '#4338ca',
+    defaultTextColor: '#ffffff',
+    titleColor: '#ffffff',
+    edgeLabelBackground: '#1e1b4b',
   },
-  flowchart: { curve: 'basis' },
+  flowchart: { curve: 'basis', htmlLabels: true },
 });
 
 let diagramCount = 0;
@@ -34,7 +41,15 @@ export function MermaidDiagram({ chart, diagram }: Props) {
 
     mermaid.render(id, content)
       .then(({ svg }) => {
-        if (ref.current) ref.current.innerHTML = svg;
+        if (ref.current) {
+          ref.current.innerHTML = svg;
+          // Apply contrast force to SVG text nodes inside rendered diagram
+          const textElements = ref.current.querySelectorAll('svg text');
+          textElements.forEach((el) => {
+            (el as HTMLElement).style.fill = '#ffffff';
+            (el as HTMLElement).style.fontWeight = '500';
+          });
+        }
       })
       .catch(e => {
         setError(`Diagram render error: ${e.message}`);
@@ -43,14 +58,24 @@ export function MermaidDiagram({ chart, diagram }: Props) {
   }, [chart, diagram]);
 
   if (error) return (
-    <div className="code-block" style={{ color: 'var(--danger)', fontSize:'0.8rem' }}>{error}</div>
+    <div className="code-block" style={{ color: 'var(--danger)', fontSize: '0.8rem' }}>{error}</div>
   );
 
   return (
     <div
+      className="mermaid-container"
       ref={ref}
-      style={{ background:'var(--bg-surface)', borderRadius:'var(--radius-lg)', padding:'1.5rem',
-               border:'1px solid var(--border)', minHeight:200, overflow:'auto' }}
+      style={{
+        background: '#070712',
+        borderRadius: 'var(--radius-lg)',
+        padding: '1.5rem',
+        border: '1px solid var(--border)',
+        minHeight: 220,
+        overflow: 'auto',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}
     />
   );
 }

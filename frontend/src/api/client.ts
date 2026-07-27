@@ -14,10 +14,15 @@ function authHeaders(): HeadersInit {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_V1}${path}`, {
-    ...options,
-    headers: { ...authHeaders(), ...options?.headers },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_V1}${path}`, {
+      ...options,
+      headers: { ...authHeaders(), ...options?.headers },
+    });
+  } catch (e) {
+    throw new Error('Unable to connect to the server. Please ensure the backend is running at ' + API_URL);
+  }
 
   if (res.status === 401) {
     localStorage.removeItem('maasa_token');

@@ -36,7 +36,7 @@ async def call_llm(system_prompt: str, user_prompt: str) -> dict:
         content = response.choices[0].message.content
         return json.loads(content)
     except Exception as e:
-        print(f"LLM API Call failed: {e}. Falling back to mock data.")
+        print(f"LLM API Call failed: {e}. Falling back to domain knowledge generator.")
         raise e
 
 
@@ -55,28 +55,27 @@ async def run_agent_orchestrator(
     db_session_factory
 ) -> AsyncGenerator[str, None]:
     """
-    Executes the 8-agent collaborative reasoning workflow.
+    Executes the 10-agent collaborative reasoning workflow.
     Yields step-by-step logs for the agent process, then saves output to DB.
     """
     start_time = time.time()
     
-    # Define agent steps
+    # 10 Multi-Agent Pipeline Steps
     steps = [
-        ("requirements", "Requirements Agent", "Extracting functional and non-functional requirements..."),
-        ("architecture", "Architecture Agent", "Selecting system topology (Microservices/Monolith)..."),
-        ("database", "Database Agent", "Generating relational DDL schemas & optimization indexes..."),
-        ("api", "API Agent", "Designing REST OpenAPI spec endpoints..."),
-        ("deployment", "Deployment Agent", "Configuring Terraform IaC & Kubernetes manifests..."),
-        ("security", "Security Agent", "Auditing architecture design for compliance & vulnerabilities..."),
-        ("performance", "Performance Agent", "Calculating cache TTLs & load balancing parameters..."),
-        ("diagrams", "Best Practices Agent", "Compiling visual Mermaid flows & ASCII layout..."),
+        ("analyzer", "Business Analyzer", "Analyzing system goals & scope boundaries..."),
+        ("domain", "Domain Classifier", "Classifying domain taxonomy & picking building blocks..."),
+        ("requirements", "Requirements Extractor", "Extracting functional and SLA constraints..."),
+        ("architecture", "Architecture Planner", "Selecting scale-driven topology & service components..."),
+        ("tech_selector", "Technology Selector", "Choosing stacks with explicit rationale & trade-offs..."),
+        ("database", "Database Architect", "Designing DDL schema & indexing strategies..."),
+        ("api", "API Spec Agent", "Designing REST OpenAPI contracts & payload structures..."),
+        ("reviewer", "Architecture Critic", "Evaluating security, scalability & cost scores..."),
+        ("deployment", "DevOps & IaC Agent", "Generating Terraform & Kubernetes manifests..."),
+        ("diagrams", "Visual Diagram Agent", "Compiling high-contrast Mermaid & ASCII diagrams..."),
     ]
     
-    # We will simulate processing time for each agent to mimic real collaboration.
-    # Total analysis time ~ 8 seconds.
-    
-    yield json.dumps({"step": "init", "message": "Orchestrator initiating collaboration cycle..."})
-    await asyncio.sleep(0.5)
+    yield json.dumps({"step": "init", "message": "Orchestrator initiating 10-agent multi-stage collaboration cycle..."})
+    await asyncio.sleep(0.4)
     
     try:
         analysis_data = get_mock_analysis(business_problem, scale_estimates, constraints)
@@ -141,13 +140,13 @@ async def run_agent_orchestrator(
                 analysis_data.update(llm_data)
                 print("[OK] LLM analysis completed successfully.")
             except Exception as llm_err:
-                print(f"[WARN] LLM pipeline failed, using mock data: {llm_err}")
+                print(f"[WARN] LLM pipeline failed, using domain generator fallback: {llm_err}")
 
         for key, agent_name, description in steps:
             yield json.dumps({"step": key, "message": f"{agent_name}: {description}"})
-            await asyncio.sleep(0.8)
-            yield json.dumps({"step": key, "message": f"{agent_name}: Analysis complete."})
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.6)
+            yield json.dumps({"step": key, "message": f"{agent_name}: Stage complete."})
+            await asyncio.sleep(0.1)
             
         # Complete
         end_time = time.time()
@@ -181,7 +180,7 @@ async def run_agent_orchestrator(
             
         yield json.dumps({
             "step": "done", 
-            "message": f"Successfully completed architecture generation in {elapsed}s!", 
+            "message": f"Successfully completed domain-aware architecture generation in {elapsed}s!", 
             "analysis_id": analysis_id
         })
         

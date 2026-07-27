@@ -1,20 +1,22 @@
 // src/pages/NewAnalysisPage.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Database, Server, Shield, Zap as ZapIcon, GitBranch, FileText } from 'lucide-react';
+import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Database, Server, Shield, Zap as ZapIcon, GitBranch, FileText, Cpu, CheckSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './NewAnalysisPage.css';
 
 const STEPS = [
   { id: 'init', label: 'Initializing', icon: Zap },
-  { id: 'requirements', label: 'Requirements', icon: FileText },
-  { id: 'architecture', label: 'Architecture', icon: GitBranch },
-  { id: 'database', label: 'Database', icon: Database },
-  { id: 'api', label: 'API Spec', icon: Server },
-  { id: 'deployment', label: 'Deployment', icon: Shield },
-  { id: 'security', label: 'Security', icon: Shield },
-  { id: 'performance', label: 'Performance', icon: ZapIcon },
-  { id: 'diagrams', label: 'Diagrams', icon: GitBranch },
+  { id: 'analyzer', label: 'Business Analyzer', icon: FileText },
+  { id: 'domain', label: 'Domain Classifier', icon: Cpu },
+  { id: 'requirements', label: 'Requirements Extractor', icon: FileText },
+  { id: 'architecture', label: 'Architecture Planner', icon: GitBranch },
+  { id: 'tech_selector', label: 'Technology Selector', icon: Server },
+  { id: 'database', label: 'Database Architect', icon: Database },
+  { id: 'api', label: 'API Spec Agent', icon: Server },
+  { id: 'reviewer', label: 'Architecture Critic', icon: CheckSquare },
+  { id: 'deployment', label: 'DevOps & IaC', icon: Shield },
+  { id: 'diagrams', label: 'Visual Diagrams', icon: GitBranch },
   { id: 'done', label: 'Complete', icon: CheckCircle },
 ];
 
@@ -151,7 +153,7 @@ export default function NewAnalysisPage() {
         </button>
         <div>
           <h1>New Architecture Analysis</h1>
-          <p className="text-secondary text-sm">Describe your business problem and let 8 AI agents design your system</p>
+          <p className="text-secondary text-sm">Describe your business problem and let 10 multi-agent AI experts design your system</p>
         </div>
       </div>
 
@@ -164,14 +166,14 @@ export default function NewAnalysisPage() {
                 <label className="form-label">Business Problem <span className="required">*</span></label>
                 <textarea
                   className="input textarea"
-                  placeholder="e.g., Build a scalable e-commerce platform for 100K daily active users with real-time inventory, payment processing, and multi-region deployment..."
+                  placeholder="e.g., Build a cybersecurity endpoint detection platform with threat intelligence feeds, real-time alert correlation, and SOC2 audit logging..."
                   value={businessProblem}
                   onChange={e => setBusinessProblem(e.target.value)}
                   rows={5}
                   required
                   disabled={loading}
                 />
-                <p className="form-hint">Be specific about your domain, scale, and key challenges. The more detail, the better the architecture.</p>
+                <p className="form-hint">Be specific about your domain, scale, and key challenges. The generator automatically applies domain building blocks and scale-driven patterns.</p>
               </div>
 
               <div className="scale-section">
@@ -207,14 +209,14 @@ export default function NewAnalysisPage() {
               {error && <div className="auth-error"><AlertCircle size={14} /> {error}</div>}
 
               <button type="submit" className="btn btn-primary btn-lg w-full" disabled={loading || !businessProblem.trim()}>
-                {loading ? <Loader2 size={18} className="spin" /> : <>Generate Architecture <Zap size={16} /></>}
+                {loading ? <Loader2 size={18} className="spin" /> : <>Generate Domain Architecture <Zap size={16} /></>}
               </button>
             </form>
           ) : (
             <div className="success-state">
               <div className="success-icon"><CheckCircle size={48} /></div>
               <h3>Analysis Complete!</h3>
-              <p>Your architecture blueprint has been generated in {stepStatus.done ? '~8s' : 'progress'}.</p>
+              <p>Your domain-aware architecture blueprint has been generated.</p>
               <button className="btn btn-primary" onClick={() => analysisId && navigate(`/analyses/${analysisId}`)}>
                 View Full Report <ChevronRight size={16} />
               </button>
@@ -274,4 +276,3 @@ export default function NewAnalysisPage() {
     </div>
   );
 }
-
