@@ -98,37 +98,18 @@ def classify_domain(business_problem: str) -> str:
     else:
         return "SaaS Platform"
 
-def select_pattern_by_scale(scale_estimates: dict) -> tuple[str, str]:
-    users_str = str(scale_estimates.get("users", "10000")).lower()
-    # parse numbers out
-    num = 10000
-    try:
-        clean = ''.join(c for c in users_str if c.isdigit())
-        if "k" in users_str:
-            num = int(clean) * 1000 if clean else 10000
-        elif "m" in users_str:
-            num = int(clean) * 1000000 if clean else 1000000
-        elif clean:
-            num = int(clean)
-    except Exception:
-        num = 10000
+def select_pattern_by_scale(scale_estimates: dict, tier: str = "professional") -> tuple[str, str]:
+    if tier == "basic":
+        return "Monolithic Architecture (Starter MVP)", "Single unified application server with direct database connection. Optimized for fast setup, low cost, and minimal operational overhead."
+    elif tier == "standard":
+        return "Modular Monolith (Production Ready)", "Clean domain separation within a single deployable unit. Uses a Redis cache layer and primary PostgreSQL database for solid production readiness."
+    elif tier == "enterprise":
+        return "Global Event-Driven Microservices (Mesh)", "Multi-region active-active deployment with an event streaming bus (Kafka), zero-trust mTLS service mesh, and automated multi-AZ failover."
+    else: # professional
+        return "Microservices Architecture (High Availability)", "Independent microservices behind a Kong API Gateway, with read replicas, background task queues, and auto-scaling container runtimes."
 
-    if num < 5000:
-        return "Modular Monolith", f"With ~{num:,} users, a Modular Monolith offers maximum developer velocity and simple deployment without microservice network overhead."
-    elif num < 100000:
-        return "Microservices Architecture", f"With ~{num:,} users, Microservices provide clear service boundaries and independent scalability for high-traffic components."
-    else:
-        return "Event-Driven Microservices (EDA)", f"With ~{num:,} users, an Event-Driven Architecture using Kafka/RabbitMQ guarantees high concurrency and non-blocking asynchronous decoupling."
-
-def generate_high_contrast_mermaid(domain: str, components: list) -> str:
-    """
-    Produces high-contrast Mermaid flowchart designed for dark-mode.
-    Uses explicit stroke color and crisp white text (#ffffff) on dark rich node backgrounds.
-    """
-    comp_lines = []
-    # Pick 4 main services for visual diagram
+def generate_high_contrast_mermaid(domain: str, components: list, tier: str = "professional") -> str:
     svcs = components[:4]
-    
     mermaid_code = f"""graph TD
     %% High-Contrast Dark-Mode Theme Definitions
     classDef client fill:#1e1b4b,stroke:#818cf8,color:#ffffff,stroke-width:2px;
@@ -149,9 +130,8 @@ def generate_high_contrast_mermaid(domain: str, components: list) -> str:
         node_id = f"Svc{i+1}"
         s_name = s["name"]
         mermaid_code += f"    {node_id}[{s_name}]:::svc\n"
-        mermaid_code += f"    APIGW -->|Dispatch| {node_id}\n"
+        mermaid_code += f"    APIGW -->|Dispatch Request| {node_id}\n"
 
-    # Infrastructure & Storage
     mermaid_code += """
     RedisCache[(Redis Distributed Cache)]:::db
     MainDB[(Primary Storage Engine)]:::db
@@ -161,7 +141,10 @@ def generate_high_contrast_mermaid(domain: str, components: list) -> str:
 """
     return mermaid_code
 
-def get_mock_analysis(business_problem: str, scale_estimates: dict, constraints: list) -> dict:
+def get_mock_analysis(business_problem: str, scale_estimates: dict = None, constraints: list = None, architecture_tier: str = "professional") -> dict:
+    if scale_estimates is None: scale_estimates = {}
+    if constraints is None: constraints = []
+    
     domain = classify_domain(business_problem)
     kb_data = DOMAIN_KNOWLEDGE_BASE.get(domain, DOMAIN_KNOWLEDGE_BASE["SaaS Platform"])
     
@@ -169,13 +152,12 @@ def get_mock_analysis(business_problem: str, scale_estimates: dict, constraints:
     requests = scale_estimates.get("daily_requests", "1,000,000")
     budget = scale_estimates.get("budget", "$5,000/month")
     
-    pattern, pattern_justification = select_pattern_by_scale(scale_estimates)
+    tier_name = architecture_tier.title()
+    pattern, pattern_justification = select_pattern_by_scale(scale_estimates, architecture_tier)
     components = kb_data["services"]
     
-    # Render Mermaid diagram
-    mermaid_diagram = generate_high_contrast_mermaid(domain, components)
+    mermaid_diagram = generate_high_contrast_mermaid(domain, components, architecture_tier)
     
-    # ASCII diagram
     ascii_diagram = f"""
 +-----------------+      +--------------------+      +-----------------------+
 |  User Clients   | ---> |  Cloudflare WAF    | ---> |  API Gateway (Kong)   |
@@ -194,18 +176,80 @@ def get_mock_analysis(business_problem: str, scale_estimates: dict, constraints:
                       +----------------------------------------------------------------------------------+
 """
 
+    # Interactive Explanation Modes Data
+    story_mode_explanation = (
+        f"🎬 **The {domain} Mission: How Your Architecture Works Like a Grand Movie Production**\n\n"
+        f"Imagine your system as a high-security movie studio set!\n\n"
+        f"1. **The Doorman (Cloudflare CDN / WAF)**: When users arrive at your website, the Doorman checks their badges, blocks intruders, and lets legitimate visitors pass through fast.\n"
+        f"2. **The Concierge (API Gateway)**: The Concierge receives the request and **Dispatches** (directs) traffic to the exact specialist service needed.\n"
+        f"3. **The Specialists ({components[0]['name']} & {components[1]['name']})**: Each service has one job and does it flawlessly. They don't interfere with each other.\n"
+        f"4. **The Flash Notepad (Redis Cache)**: Instead of opening heavy filing cabinets every second, workers scribble frequent notes on a lightning-fast whiteboard.\n"
+        f"5. **The Master Vault ({kb_data['db'].split(' ')[0]})**: All critical records, user accounts, and audit trails are locked safely inside the indestructible vault!"
+    )
+
+    eli5_terms = [
+        {
+            "term": "Dispatch",
+            "symbol": "➔ (Forward Arrow)",
+            "meaning": "Routing an incoming user request from the API Gateway to the specific backend service responsible for processing it.",
+            "analogy": "Like a hospital receptionist sending a patient to the Cardiology room instead of Radiology."
+        },
+        {
+            "term": "Redis Cache",
+            "symbol": "🛢️ (Cylinder Box)",
+            "meaning": "An in-memory, ultra-fast data store used to hold active user sessions and frequent queries in RAM.",
+            "analogy": "Like keeping a cheat-sheet on your desk instead of walking to the library every time you need an answer."
+        },
+        {
+            "term": "API Gateway",
+            "symbol": "🛡️ (Security Shield Box)",
+            "meaning": "The single front door that receives all web and mobile traffic, authenticates user tokens, and enforces rate limits.",
+            "analogy": "The airport security checkpoint verifying boarding passes before letting passengers into terminal gates."
+        },
+        {
+            "term": "Cloudflare WAF / CDN",
+            "symbol": "🌐 (Edge Network Box)",
+            "meaning": "Web Application Firewall & Content Delivery Network operating at the global edge to block malicious traffic and cache static assets.",
+            "analogy": "Surrounding your fortress with a moat and security guards stationed in every major city around the world."
+        },
+        {
+            "term": "Cylinder Shapes [(...)]",
+            "symbol": "[( Database Node )]",
+            "meaning": "Standard architectural symbol for databases and storage engines holding structured tables or logs.",
+            "analogy": "A physical filing cabinet or bank safe vault."
+        },
+        {
+            "term": "Arrows & Connecting Lines",
+            "symbol": "--> |Action|",
+            "meaning": "Represents direction of network requests, HTTP/gRPC API calls, or data streaming flows between nodes.",
+            "analogy": "Highways connecting different buildings in a city."
+        }
+    ]
+
+    analogy_explanations = [
+        {
+            "concept": "Microservices vs Monolith",
+            "explanation": "A Monolith is like a single Swiss Army Knife—everything in one tool. Microservices are like a specialized toolbox with dedicated electric tools for each job."
+        },
+        {
+            "concept": "Read Replicas",
+            "explanation": "Having a primary database with 2 read replicas is like having 1 master writer writing a book and 2 photocopy machines handing out copies to readers."
+        }
+    ]
+
     return {
         "domain": domain,
+        "architecture_tier": tier_name,
         "requirements": {
             "functional": [
-                f"Domain Focus ({domain}): Automated workflow handling for core operational entities.",
+                f"Domain Focus ({domain}): Tier-optimized ({tier_name}) workflow handling for core operational entities.",
                 f"User Access: Support role-based access control (RBAC) and OAuth2/OIDC authentication for {users} active users.",
-                f"Service Decoupling: Provide dedicated endpoints for {components[0]['name']} and {components[1]['name']}.",
+                f"Service Decoupling: Dedicated endpoints for {components[0]['name']} and {components[1]['name']}.",
                 "Event Notification: Real-time alerting and audit trail emission on key state changes.",
-                "Analytics & Export: Generate periodic tenant usage logs and operational telemetry dashboards."
+                "Analytics & Export: Periodic tenant usage logs and operational telemetry dashboards."
             ],
             "non_functional": [
-                f"Scalability: Designed to handle up to {requests} daily requests with auto-scaling container runtimes.",
+                f"Scalability: Designed for {requests} daily requests at the {tier_name} tier.",
                 "Availability: Target 99.95% uptime SLA via Multi-AZ database deployments and active health probes.",
                 f"Budget Limit: Infrastructure optimized to stay within target budget of {budget}.",
                 "Performance: P95 latency < 150ms for read requests and < 350ms for transaction writes.",
@@ -213,7 +257,7 @@ def get_mock_analysis(business_problem: str, scale_estimates: dict, constraints:
             ]
         },
         "architecture_design": {
-            "system_type": f"{domain} Architecture",
+            "system_type": f"{domain} Architecture ({tier_name} Tier)",
             "pattern": pattern,
             "justification": f"{pattern_justification} Selected specifically for the {domain} domain to ensure maximum component isolation, ease of maintainability, and clean data boundaries.",
             "components": [
@@ -225,7 +269,10 @@ def get_mock_analysis(business_problem: str, scale_estimates: dict, constraints:
                     "alternatives": comp["alternatives"],
                     "tradeoffs": comp["tradeoffs"]
                 } for comp in components
-            ]
+            ],
+            "story_mode": story_mode_explanation,
+            "eli5_terms": eli5_terms,
+            "analogies": analogy_explanations
         },
         "database_schema": {
             "database_type": kb_data["db"],

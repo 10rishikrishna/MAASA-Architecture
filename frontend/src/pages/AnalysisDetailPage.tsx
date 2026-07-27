@@ -1,7 +1,7 @@
 // src/pages/AnalysisDetailPage.tsx
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Download, CheckCircle, XCircle, Clock, Zap, FileText, Database, Server, Shield, GitBranch, Zap as ZapIcon, Trash2, Share2, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Copy, Download, CheckCircle, XCircle, Clock, Zap, FileText, Database, Server, Shield, GitBranch, Zap as ZapIcon, Trash2, Share2, MessageSquare, BookOpen, Film, HelpCircle, Info, Sparkles } from 'lucide-react';
 import { analyzeApi, type AnalysisDetail, chatApi, type ChatMessage } from '../api/client';
 import { MermaidDiagram } from '../components/MermaidDiagram';
 import './AnalysisDetailPage.css';
@@ -16,7 +16,7 @@ const TABS = [
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'performance', label: 'Performance', icon: ZapIcon },
   { id: 'diagrams', label: 'Diagrams', icon: GitBranch },
-  { id: 'chat', label: 'Chat', icon: MessageSquare },
+  { id: 'chat', label: 'Chat with Sulaiman AI 👳🏽‍♂️', icon: MessageSquare },
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -66,15 +66,21 @@ function ChatPanel({ analysisId }: { analysisId: string }) {
 
   async function handleSend(content: string) {
     if (!content.trim() || loading) return;
+    const userMsg = content;
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content, timestamp: new Date().toISOString() }]);
+    setMessages(prev => [...prev, { role: 'user', content: userMsg, timestamp: new Date().toISOString() }]);
     setLoading(true);
+
     try {
-      const res = await chatApi.send(analysisId, content);
+      // Simulate natural typing/thinking delay (~1.2s) for realistic interactive experience
+      const [res] = await Promise.all([
+        chatApi.send(analysisId, userMsg),
+        new Promise(resolve => setTimeout(resolve, 1200))
+      ]);
       setMessages(prev => [...prev, { role: 'assistant', content: res.response, timestamp: new Date().toISOString() }]);
       setSuggestions(res.follow_up_suggestions);
     } catch (_err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.', timestamp: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Deyy, cheriya signal issue. Try typing again! 😄', timestamp: new Date().toISOString() }]);
     } finally {
       setLoading(false);
     }
@@ -91,26 +97,33 @@ function ChatPanel({ analysisId }: { analysisId: string }) {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <h3>Architecture Discussion</h3>
-        <button className="btn btn-ghost btn-sm" onClick={handleClear}>Clear</button>
+        <div className="chat-title-group">
+          <h3>Sulaiman AI 👳🏽‍♂️</h3>
+          <span className="text-xs text-muted">Your AI Architecture Assistant (Confident & Helpful)</span>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={handleClear}>Clear History</button>
       </div>
       <div className="chat-messages">
         {messages.length === 0 && (
           <div className="chat-empty">
-            <MessageSquare size={32} />
-            <p>Ask questions about your architecture design</p>
+            <MessageSquare size={36} className="text-accent" />
+            <h4>Njan Sulaiman AI! 😄</h4>
+            <p>Njan Sulaiman alla... Hanuman aanu. Pande ennod Thamarassery Churam erangiyappo chodichathaa. Ningal sheriaya sthalath aanu vannirikkunnath, doubt okke namukku fix cheyyam! Ask me anything about your system architecture!</p>
           </div>
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`chat-msg chat-msg-${msg.role}`}>
-            <div className="chat-msg-avatar">{msg.role === 'user' ? 'U' : 'AI'}</div>
+            <div className="chat-msg-avatar">{msg.role === 'user' ? 'U' : '👳🏽‍♂️'}</div>
             <div className="chat-msg-content" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
           </div>
         ))}
         {loading && (
           <div className="chat-msg chat-msg-assistant">
-            <div className="chat-msg-avatar">AI</div>
-            <div className="chat-msg-content"><div className="spinner" style={{ width: 16, height: 16 }} /> Thinking...</div>
+            <div className="chat-msg-avatar">👳🏽‍♂️</div>
+            <div className="chat-msg-content typing-indicator">
+              <div className="spinner" style={{ width: 14, height: 14 }} />
+              <span>Sulaiman AI is typing... 💬</span>
+            </div>
           </div>
         )}
       </div>
@@ -124,7 +137,7 @@ function ChatPanel({ analysisId }: { analysisId: string }) {
       <div className="chat-input-bar">
         <input
           className="input"
-          placeholder="Ask about your architecture..."
+          placeholder="Ask Sulaiman AI about components, Redis, endpoints, security..."
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend(input)}
@@ -147,6 +160,10 @@ export default function AnalysisDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Explanation Controls State
+  const [explanationMode, setExplanationMode] = useState<'technical' | 'story' | 'analogy'>('technical');
+  const [explanationLevel, setExplanationLevel] = useState<'basic' | 'intermediate' | 'advanced'>('basic');
 
   useEffect(() => {
     if (!id) return;
@@ -248,6 +265,7 @@ export default function AnalysisDetailPage() {
   }
 
   const isProcessing = analysis.status === 'processing';
+  const archDesign = analysis.architecture_design || {};
 
   return (
     <div className="detail-page">
@@ -308,9 +326,66 @@ export default function AnalysisDetailPage() {
         ))}
       </div>
 
+      {/* Explanation Controls Bar for Overview and Architecture tabs */}
+      {(activeTab === 'overview' || activeTab === 'architecture' || activeTab === 'diagrams') && (
+        <div className="explanation-controls-bar fade-in">
+          <div className="control-group">
+            <span className="control-label"><BookOpen size={14} /> Explanation Mode:</span>
+            <button className={`mode-btn ${explanationMode === 'technical' ? 'active' : ''}`} onClick={() => setExplanationMode('technical')}>
+              📘 Technical
+            </button>
+            <button className={`mode-btn ${explanationMode === 'story' ? 'active' : ''}`} onClick={() => setExplanationMode('story')}>
+              🎭 Story Mode
+            </button>
+            <button className={`mode-btn ${explanationMode === 'analogy' ? 'active' : ''}`} onClick={() => setExplanationMode('analogy')}>
+              💡 Analogy Mode
+            </button>
+          </div>
+
+          <div className="control-group">
+            <span className="control-label"><Info size={14} /> Detail Level:</span>
+            <button className={`level-btn ${explanationLevel === 'basic' ? 'active' : ''}`} onClick={() => setExplanationLevel('basic')}>
+              🟢 Basic (ELI5 Terms & Symbols)
+            </button>
+            <button className={`level-btn ${explanationLevel === 'intermediate' ? 'active' : ''}`} onClick={() => setExplanationLevel('intermediate')}>
+              🟡 Intermediate
+            </button>
+            <button className={`level-btn ${explanationLevel === 'advanced' ? 'active' : ''}`} onClick={() => setExplanationLevel('advanced')}>
+              🔴 Advanced
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="detail-content">
         {activeTab === 'overview' && (
           <div className="tab-content">
+            {/* Story Mode Card if enabled */}
+            {explanationMode === 'story' && archDesign.story_mode && (
+              <SectionCard title="Architecture Story Mode 🎬" icon={Film} className="full-width story-card fade-in">
+                <div className="story-content" dangerouslySetInnerHTML={{ __html: archDesign.story_mode.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
+              </SectionCard>
+            )}
+
+            {/* Basic ELI5 Terms & Symbols Decoder Grid */}
+            {explanationLevel === 'basic' && archDesign.eli5_terms && (
+              <SectionCard title="Terms & Diagram Symbols Decoder 🟢 (ELI5 Beginner Guide)" icon={HelpCircle} className="full-width eli5-card fade-in">
+                <p className="text-sm text-secondary mb-3">Here is what every term, arrow, shape, and symbol in your architecture diagram means:</p>
+                <div className="eli5-grid">
+                  {archDesign.eli5_terms.map((item: any, i: number) => (
+                    <div key={i} className="eli5-item">
+                      <div className="eli5-item-header">
+                        <span className="eli5-term">{item.term}</span>
+                        <span className="badge badge-accent">{item.symbol}</span>
+                      </div>
+                      <p className="eli5-meaning"><strong>Meaning:</strong> {item.meaning}</p>
+                      <p className="eli5-analogy"><strong>Analogy:</strong> {item.analogy}</p>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
             <div className="grid-2">
               <SectionCard title="Business Problem" icon={FileText}>
                 <p className="problem-text">{analysis.business_problem}</p>
@@ -356,6 +431,31 @@ export default function AnalysisDetailPage() {
 
         {activeTab === 'architecture' && analysis.architecture_design && (
           <div className="tab-content">
+            {/* Story Mode Narrative */}
+            {explanationMode === 'story' && archDesign.story_mode && (
+              <SectionCard title="Architecture Story Mode 🎬" icon={Film} className="full-width story-card fade-in">
+                <div className="story-content" dangerouslySetInnerHTML={{ __html: archDesign.story_mode.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
+              </SectionCard>
+            )}
+
+            {/* Basic ELI5 Terms Decoder */}
+            {explanationLevel === 'basic' && archDesign.eli5_terms && (
+              <SectionCard title="Terms & Diagram Symbols Decoder 🟢" icon={HelpCircle} className="full-width eli5-card fade-in">
+                <div className="eli5-grid">
+                  {archDesign.eli5_terms.map((item: any, i: number) => (
+                    <div key={i} className="eli5-item">
+                      <div className="eli5-item-header">
+                        <span className="eli5-term">{item.term}</span>
+                        <span className="badge badge-accent">{item.symbol}</span>
+                      </div>
+                      <p className="eli5-meaning"><strong>Meaning:</strong> {item.meaning}</p>
+                      <p className="eli5-analogy"><strong>Analogy:</strong> {item.analogy}</p>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+
             <SectionCard title="System Overview" icon={GitBranch} className="full-width">
               <div className="grid-3">
                 <KeyValueRow label="System Type" value={analysis.architecture_design.system_type} />
@@ -371,6 +471,7 @@ export default function AnalysisDetailPage() {
                       <h4>{comp.name}</h4>
                       <p className="text-sm text-secondary">{comp.description}</p>
                       <span className="badge badge-accent">{comp.technology}</span>
+                      {comp.reason && <p className="text-xs text-muted mt-2"><strong>Reason:</strong> {comp.reason}</p>}
                     </div>
                   ))}
                 </div>

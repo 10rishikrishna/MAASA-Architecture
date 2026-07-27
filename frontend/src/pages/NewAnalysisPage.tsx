@@ -1,7 +1,7 @@
 // src/pages/NewAnalysisPage.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Database, Server, Shield, Zap as ZapIcon, GitBranch, FileText, Cpu, CheckSquare } from 'lucide-react';
+import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Database, Server, Shield, Zap as ZapIcon, GitBranch, FileText, Cpu, CheckSquare, Layers, Sparkles, ShieldCheck, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './NewAnalysisPage.css';
 
@@ -22,10 +22,42 @@ const STEPS = [
 
 const STEP_ORDER = STEPS.map(s => s.id);
 
+const TIERS = [
+  {
+    id: 'basic',
+    name: 'Basic / Starter MVP',
+    icon: Sparkles,
+    badge: 'Fast & Simple',
+    desc: 'Single unified server with PostgreSQL/SQLite. Ideal for quick prototypes, MVPs, and low-traffic applications with minimal monthly cost.',
+  },
+  {
+    id: 'standard',
+    name: 'Standard Production',
+    icon: Layers,
+    badge: 'Production Ready',
+    desc: 'Modular design with Load Balancer, Primary Database, and Redis Cache layer. Perfect for early-stage production startups.',
+  },
+  {
+    id: 'professional',
+    name: 'Professional HA',
+    icon: ShieldCheck,
+    badge: 'Popular',
+    desc: 'High-availability microservices with Kong API Gateway, read-replicas, message queues, and automated scaling.',
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise Global',
+    icon: Globe,
+    badge: 'Global Scale',
+    desc: 'Multi-region active-active event mesh with zero-trust mTLS security, automated failover, and strict SOC2/HIPAA compliance.',
+  },
+];
+
 export default function NewAnalysisPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
   const [businessProblem, setBusinessProblem] = useState('');
+  const [architectureTier, setArchitectureTier] = useState('professional');
   const [scaleEstimates, setScaleEstimates] = useState({ users: '', daily_requests: '', budget: '' });
   const [constraints, setConstraints] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,6 +105,7 @@ export default function NewAnalysisPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           business_problem: businessProblem,
+          architecture_tier: architectureTier,
           scale_estimates: scaleEstimates,
           constraints: constraints.split(',').map(s => s.trim()).filter(Boolean),
         }),
@@ -153,7 +186,7 @@ export default function NewAnalysisPage() {
         </button>
         <div>
           <h1>New Architecture Analysis</h1>
-          <p className="text-secondary text-sm">Describe your business problem and let 10 multi-agent AI experts design your system</p>
+          <p className="text-secondary text-sm">Describe your business problem, pick an Architecture Degree Tier, and let 10 multi-agent AI experts design your system</p>
         </div>
       </div>
 
@@ -169,11 +202,36 @@ export default function NewAnalysisPage() {
                   placeholder="e.g., Build a cybersecurity endpoint detection platform with threat intelligence feeds, real-time alert correlation, and SOC2 audit logging..."
                   value={businessProblem}
                   onChange={e => setBusinessProblem(e.target.value)}
-                  rows={5}
+                  rows={4}
                   required
                   disabled={loading}
                 />
-                <p className="form-hint">Be specific about your domain, scale, and key challenges. The generator automatically applies domain building blocks and scale-driven patterns.</p>
+                <p className="form-hint">Be specific about your domain, scale, and key challenges.</p>
+              </div>
+
+              {/* Architecture Tier Degree Selector */}
+              <div className="tier-section">
+                <label className="form-label">Architecture Degree / Tier</label>
+                <div className="tier-grid">
+                  {TIERS.map(tier => {
+                    const Icon = tier.icon;
+                    const isSelected = architectureTier === tier.id;
+                    return (
+                      <div
+                        key={tier.id}
+                        className={`tier-card ${isSelected ? 'selected' : ''}`}
+                        onClick={() => !loading && setArchitectureTier(tier.id)}
+                      >
+                        <div className="tier-card-header">
+                          <Icon size={18} className="tier-icon" />
+                          <span className="tier-name">{tier.name}</span>
+                          <span className={`badge ${isSelected ? 'badge-accent' : 'badge-ghost'}`}>{tier.badge}</span>
+                        </div>
+                        <p className="tier-desc">{tier.desc}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="scale-section">
@@ -203,20 +261,19 @@ export default function NewAnalysisPage() {
                   onChange={e => setConstraints(e.target.value)}
                   disabled={loading}
                 />
-                <p className="form-hint">Regulatory, technical, or organizational constraints the agents should consider.</p>
               </div>
 
               {error && <div className="auth-error"><AlertCircle size={14} /> {error}</div>}
 
               <button type="submit" className="btn btn-primary btn-lg w-full" disabled={loading || !businessProblem.trim()}>
-                {loading ? <Loader2 size={18} className="spin" /> : <>Generate Domain Architecture <Zap size={16} /></>}
+                {loading ? <Loader2 size={18} className="spin" /> : <>Generate {architectureTier.toUpperCase()} Architecture <Zap size={16} /></>}
               </button>
             </form>
           ) : (
             <div className="success-state">
               <div className="success-icon"><CheckCircle size={48} /></div>
               <h3>Analysis Complete!</h3>
-              <p>Your domain-aware architecture blueprint has been generated.</p>
+              <p>Your {architectureTier.toUpperCase()} architecture blueprint has been generated.</p>
               <button className="btn btn-primary" onClick={() => analysisId && navigate(`/analyses/${analysisId}`)}>
                 View Full Report <ChevronRight size={16} />
               </button>

@@ -1,4 +1,6 @@
 # backend/routers/chat.py
+import re
+import random
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -18,13 +20,34 @@ class ChatMessageResponse(BaseModel):
     follow_up_suggestions: List[str]
     conversation_length: int
 
+SULAIMAN_DIALOGUES = {
+    "greetings": [
+        "Njan Sulaiman alla... Hanuman aanu. Pande ennod PWD officer Thamarassery Churam erangiyappo chodichathaa. 😄 Ningal sheriaya sthalath aanu vannirikkunnath, doubt okke namukku fix cheyyam."
+    ],
+    "doubt": [
+        "Athre ullu? Deyy ippo sheriakki theraam. 😄",
+        "Ohoo ithaano karyam? Deyy ippo sheriakki theraam."
+    ],
+    "debugging": [
+        "Karim ee aa cheriya spanner ing eduthe... dee ippo sheriakki theraam. 🔧"
+    ],
+    "argument": [
+        "Enthaanu thaamasha aakaano? Heh... venda ketto. 😅"
+    ],
+    "success": [
+        "Kando... paranjille, ippo sheri aaki theraam nn. 😎",
+        "Athaanu nammade pani. System set! 🚀"
+    ]
+}
+
 def generate_contextual_response(question: str, analysis: Analysis) -> tuple[str, List[str]]:
     q = question.lower().strip()
     
-    # Extract contextual metadata from analysis
+    # Contextual metadata from analysis
     arch = analysis.architecture_design or {}
     pattern = arch.get("pattern", "Microservices Architecture")
     sys_type = arch.get("system_type", "Domain Architecture")
+    tier = arch.get("architecture_tier", "Professional")
     components = arch.get("components", [])
     comp_names = [c.get("name", "Service") for c in components] if components else ["Core API Service", "Auth Service"]
     
@@ -33,43 +56,82 @@ def generate_contextual_response(question: str, analysis: Analysis) -> tuple[str
     
     sec_audit = analysis.security_audit or {}
     compliance = sec_audit.get("compliance", "SOC2 / GDPR compliance")
-    scores = sec_audit.get("scores", {})
-    sec_score = scores.get("security", 90)
+    sec_score = sec_audit.get("scores", {}).get("security", 92)
     
     api_spec = analysis.api_specification or {}
     endpoints = api_spec.get("endpoints", [])
     
-    # 1. Greetings & System Overview
-    if any(k in q for k in ["hi", "hello", "hey", "describe", "explain my project", "overview", "what is this system", "tell me about"]):
+    prefix_quote = ""
+    
+    # 1. Check for Greetings / Intros
+    if any(re.search(r'\b' + k + r'\b', q) for k in ["hi", "hello", "hey", "hai", "good morning", "greetings", "who are you"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["greetings"]) + "\n\n"
         comp_str = ", ".join(comp_names[:4]) if comp_names else "Core Services"
         ans = (
-            f"Hello! I am your AI Lead Architect for **{analysis.business_problem[:60]}...**\n\n"
-            f"**System Architecture Overview:**\n"
+            f"{prefix_quote}"
+            f"**System Blueprint Summary ({tier} Tier):**\n"
             f"- **System Type:** {sys_type}\n"
             f"- **Pattern:** {pattern}\n"
             f"- **Core Building Blocks:** {comp_str}\n"
-            f"- **Database Stack:** {db_type}\n"
-            f"- **Security Score:** {sec_score}/100 ({compliance})\n\n"
-            f"What specific component, API endpoint, or cloud deployment strategy would you like to discuss?"
+            f"- **Database Engine:** {db_type}\n"
+            f"- **Security Score:** {sec_score}/100 🛡️ ({compliance})\n\n"
+            f"What specific component, API endpoint, or cloud deployment strategy would you like to discuss today? 😄"
         )
-        suggestions = ["Why this architecture pattern?", "List all API endpoints", "Explain the database schema"]
+        suggestions = ["Why did you choose this architecture?", "Explain database choices", "List all API endpoints"]
 
-    # 2. Architecture Pattern & Justification
-    elif any(k in q for k in ["why", "pattern", "microservices", "monolith", "topology", "architecture"]):
+    # 2. Check for Arguments / Objections / Disagreements
+    elif any(k in q for k in ["wrong", "you are wrong", "no", "not correct", "argue", "terrible", "bad"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["argument"]) + "\n\n"
+        ans = (
+            f"{prefix_quote}"
+            f"Let's look at the trade-offs! For **{analysis.business_problem[:50]}...**, the choice of **{pattern}** was made because:\n"
+            f"1. **Fault Isolation:** High load spikes in one worker won't crash user auth.\n"
+            f"2. **Scaling:** Individual components like `{comp_names[0] if comp_names else 'API Service'}` scale independently.\n\n"
+            f"If you prefer a simpler layout (like Monolith), we can adjust the Architecture Tier to **Basic**! 💡"
+        )
+        suggestions = ["Show monolith alternative", "Explain trade-offs", "What about budget?"]
+
+    # 3. Check for Bugs / Crashes / Errors
+    elif any(k in q for k in ["bug", "not working", "crash", "error", "failed", "broken", "issue"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["debugging"]) + "\n\n"
+        ans = (
+            f"{prefix_quote}"
+            f"Here is how our architecture prevents and recovers from system errors:\n"
+            f"- **Circuit Breakers:** API Gateway (Kong) immediately stops cascading failure if backend pods slow down.\n"
+            f"- **Dead Letter Queues (DLQ):** Failed asynchronous event messages are safely stored for auto-retry.\n"
+            f"- **Health Probes:** Kubernetes liveness/readiness probes restart unhealthy container pods within seconds! ⚡"
+        )
+        suggestions = ["How does failover work?", "Show security audit", "What are retry policies?"]
+
+    # 4. Check for Success / Praise / Thanks
+    elif any(k in q for k in ["fixed", "worked", "thanks", "thank you", "wow", "solved", "great", "awesome"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["success"]) + "\n\n"
+        ans = (
+            f"{prefix_quote}"
+            f"Glad you loved the design! You can export your full architecture report as **Markdown (.md)** or **JSON**, "
+            f"or copy the Terraform IaC scripts under the Deployment tab to spin up infrastructure instantly. 🚀"
+        )
+        suggestions = ["Download Markdown report", "View Terraform IaC", "Ask another question"]
+
+    # 5. Check for Architecture Selection / "Why did you choose" (with fuzzy match for typos like "whu did u chose")
+    elif any(k in q for k in ["why", "chose", "choose", "whu", "pattern", "topology", "reason", "decision"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
         justification = arch.get("justification", f"Selected {pattern} for optimal component isolation.")
         ans = (
+            f"{prefix_quote}"
             f"**Architecture Decision Record (ADR):**\n\n"
-            f"We selected **{pattern}** for your system.\n\n"
+            f"We selected **{pattern}** at the **{tier} Tier**.\n\n"
             f"**Rationale:**\n{justification}\n\n"
-            f"**Key Benefits:**\n"
-            f"- **Fault Domain Isolation:** Failures in background workloads won't crash user authentication or telemetry ingestion.\n"
-            f"- **Targeted Autoscaling:** High-traffic services ({comp_names[0] if comp_names else 'API Gateway'}) can scale independently.\n"
-            f"- **Maintainability:** Clear boundaries reduce code coupling as team size scales."
+            f"**Key Engineering Benefits:**\n"
+            f"1. **High Concurrency:** Independent worker pools process incoming requests without blocking.\n"
+            f"2. **Zero Downtime Deployments:** Rolling upgrades allow updating individual services without global outages.\n"
+            f"3. **Clean Team Boundaries:** Engineering teams can own dedicated service repos independently. ⚡"
         )
-        suggestions = ["What are the trade-offs?", "Migration path from monolith?", "How does load balancing work?"]
+        suggestions = ["What are the trade-offs?", "Migration path from monolith?", "Explain component choices"]
 
-    # 3. Component Details & Technology Choices
-    elif any(k in q for k in ["component", "service", "stack", "technology", "tech", "node", "building block"]):
+    # 6. Check for Component / Technology Questions
+    elif any(k in q for k in ["component", "service", "stack", "technology", "tech", "node", "building block", "redis", "postgres"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
         comp_details = ""
         for c in components[:5]:
             c_name = c.get("name", "Service")
@@ -78,81 +140,90 @@ def generate_contextual_response(question: str, analysis: Analysis) -> tuple[str
             comp_details += f"- **{c_name}** (`{c_tech}`): {c_reason}\n"
             
         ans = (
-            f"Here are the core service components designed for this system:\n\n"
+            f"{prefix_quote}"
+            f"Here is the breakdown of components designed for your system:\n\n"
             f"{comp_details}\n"
-            f"Each service communicates asynchronously via event streams or gRPC internal protocols."
+            f"All components communicate asynchronously via event streams or gRPC internal protocols. 🔧"
         )
-        suggestions = ["How do components handle failures?", "Explain database choices", "What is the security design?"]
+        suggestions = ["Explain database schema", "Show API endpoints", "What about security?"]
 
-    # 4. Database Schema & Storage
-    elif any(k in q for k in ["database", "db", "sql", "postgres", "schema", "tables", "storage", "redis"]):
+    # 7. Database Questions
+    elif any(k in q for k in ["database", "db", "sql", "postgres", "schema", "tables", "storage", "cache"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
         tables = db_schema.get("schemas", [])
         tbl_names = [t.get("table_name", "entities") for t in tables] if tables else ["users", "events"]
         ans = (
-            f"**Database Architecture:**\n\n"
-            f"Primary Storage: **{db_type}**\n\n"
-            f"**Core Schemas & Partitioning:**\n"
-            f"- Defined Tables: `{', '.join(tbl_names)}`\n"
-            f"- **ACID Guarantees:** Strict transactional safety enforced for financial and state mutations.\n"
-            f"- **Indexing:** B-Tree indexes configured on primary lookup keys for sub-10ms query execution."
+            f"{prefix_quote}"
+            f"**Database & Storage Layout:**\n\n"
+            f"- **Primary Storage:** `{db_type}`\n"
+            f"- **Core Tables:** `{', '.join(tbl_names)}`\n"
+            f"- **Session Cache:** Redis Distributed Cache (1-hour TTL)\n"
+            f"- **ACID Protection:** Strict transactional isolation enforced for financial/state mutations. 🛢️"
         )
-        suggestions = ["Show me the SQL DDL?", "How is caching configured?", "What if database load spikes?"]
+        suggestions = ["Show SQL DDL code", "What is Redis?", "How is indexing configured?"]
 
-    # 5. API Specification & Endpoints
-    elif any(k in q for k in ["api", "endpoint", "rest", "swagger", "openapi", "grpc", "routes"]):
+    # 8. API / Endpoint Questions
+    elif any(k in q for k in ["api", "endpoint", "rest", "swagger", "openapi", "route", "dispatch"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
         ep_text = ""
         for ep in endpoints[:3]:
             ep_text += f"- `{ep.get('method', 'GET')}` **{ep.get('path', '/api/v1')}**: {ep.get('description', '')}\n"
             
         ans = (
-            f"**API Specifications:**\n\n"
-            f"Protocol: **{api_spec.get('protocol', 'REST HTTP / JSON')}**\n\n"
-            f"**Key Endpoints:**\n{ep_text if ep_text else '- POST /api/v1/events: Ingest operational events'}\n"
-            f"All endpoints enforce Bearer JWT Authentication and rate-limiting at the API Gateway level."
+            f"{prefix_quote}"
+            f"**API Specifications ({api_spec.get('protocol', 'REST HTTP / JSON')}):**\n\n"
+            f"{ep_text if ep_text else '- POST /api/v1/events: Ingest operational events'}\n"
+            f"All requests pass through the API Gateway (Kong) where JWT tokens are validated before reaching backend services. 🛡️"
         )
-        suggestions = ["How are API tokens validated?", "Is there rate limiting?", "Show payload examples"]
+        suggestions = ["How are tokens validated?", "Is there rate limiting?", "Show request payloads"]
 
-    # 6. Security & Vulnerabilities
+    # 9. Security & Compliance
     elif any(k in q for k in ["security", "vulnerability", "auth", "jwt", "compliance", "hipaa", "soc2", "audit"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
         mitigations = sec_audit.get("vulnerability_mitigations", [])
         mit_text = "\n".join([f"- {m}" for m in mitigations[:3]])
         ans = (
-            f"**Security Audit Summary (Score: {sec_score}/100):**\n\n"
+            f"{prefix_quote}"
+            f"**Security Audit Summary (Score: {sec_score}/100 🛡️):**\n\n"
             f"**Compliance Target:** {compliance}\n\n"
             f"**Vulnerability Mitigations:**\n"
             f"{mit_text}\n\n"
-            f"**Zero-Trust Security:** All intra-service communications use TLS 1.3 encryption with strict IAM role access."
+            f"Intra-service traffic is strictly encrypted using TLS 1.3 mTLS tunnels."
         )
-        suggestions = ["How to prepare for SOC2 audit?", "Can we add 2FA?", "How is data encrypted at rest?"]
+        suggestions = ["How to audit API keys?", "Can we add 2FA?", "How is data encrypted at rest?"]
 
-    # 7. Costs & Cloud Infrastructure
+    # 10. Cost & Infrastructure Questions
     elif any(k in q for k in ["cost", "aws", "budget", "price", "cloud", "terraform", "k8s", "kubernetes"]):
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
         ans = (
-            f"**Cloud Budget & Infrastructure Breakdown (AWS Target):**\n\n"
-            f"| Component | Technology | Estimated Cost/mo |\n"
+            f"{prefix_quote}"
+            f"**Cloud Budget Breakdown (AWS Target - {tier} Tier):**\n\n"
+            f"| Component | Technology | Monthly Est. |\n"
             f"| --- | --- | --- |\n"
-            f"| **API Gateway / CDN** | Cloudflare WAF + AWS ALB | $25.00 |\n"
-            f"| **Compute Containers** | AWS ECS Fargate / EKS | $65.00 |\n"
+            f"| **WAF / API Gateway** | Cloudflare WAF + AWS ALB | $25.00 |\n"
+            f"| **Compute Runtimes** | AWS ECS Fargate / EKS | $65.00 |\n"
             f"| **Database Cluster** | Amazon RDS ({db_type.split('+')[0]}) | $120.00 |\n"
             f"| **Cache & Queue** | ElastiCache Redis | $30.00 |\n"
-            f"| **Total Projected** | **Production Grade** | **~$240.00/month** |\n\n"
-            f"Terraform IaC scripts and Kubernetes manifests are ready under the Deployment tab."
+            f"| **Total Projected** | **Production Grade** | **~$240.00/mo** |\n\n"
+            f"IaC Terraform templates and Kubernetes manifests are ready under the Deployment tab! ☁️"
         )
-        suggestions = ["How to reduce database costs?", "Can we deploy on Kubernetes?", "What if traffic doubles?"]
+        suggestions = ["How to reduce costs?", "Can we run on Kubernetes?", "What if traffic doubles?"]
 
-    # 8. Fallback (Contextual Dynamic Answer)
+    # 11. General Fallback with Sulaiman Persona
     else:
+        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
         ans = (
-            f"Great question regarding **{question}** for your system!\n\n"
-            f"In this **{pattern}** design for **{sys_type}**, we handle `{question}` by leveraging the **{comp_names[0] if comp_names else 'Core API'}** "
-            f"and our **{db_type}** storage layer.\n\n"
-            f"Key considerations:\n"
-            f"1. **Isolation:** Ensured by component boundaries so other services remain unaffected.\n"
+            f"{prefix_quote}"
+            f"Great question regarding **{question}** for your system! 😄\n\n"
+            f"In this **{pattern}** ({tier} Tier), we handle `{question}` by delegating work to **{comp_names[0] if comp_names else 'Core Service'}** "
+            f"and persisting state to **{db_type}**.\n\n"
+            f"**Key Highlights:**\n"
+            f"1. **Operational Isolation:** Service bounds ensure zero crash propagation.\n"
             f"2. **Resilience:** Automatic retry policies with exponential backoff at the gateway.\n"
-            f"3. **Monitoring:** Centralized log ingestion via audit pipelines.\n\n"
-            f"Would you like me to elaborate on the implementation code, database locks, or security controls for this?"
+            f"3. **Observability:** Centralized audit and log streaming.\n\n"
+            f"What else would you like me to detail for you?"
         )
-        suggestions = ["Explain component interaction", "Show security details", "What is the cost breakdown?"]
+        suggestions = ["Explain component interactions", "Show security details", "What is the cost breakdown?"]
 
     return ans, suggestions
 
@@ -194,7 +265,7 @@ def send_chat_message(
         "timestamp": datetime.utcnow().isoformat()
     }
     
-    # Generate bot response
+    # Generate bot response with Sulaiman AI persona
     ans_content, suggestions = generate_contextual_response(payload.content, analysis)
     
     bot_msg = {

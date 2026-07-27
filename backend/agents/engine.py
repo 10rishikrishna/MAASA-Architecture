@@ -48,16 +48,19 @@ def _build_user_prompt(business_problem: str, scale_estimates: dict, constraints
     )
 
 async def run_agent_orchestrator(
-    business_problem: str, 
-    scale_estimates: dict, 
-    constraints: list,
-    analysis_id: str,
-    db_session_factory
+    business_problem: str,
+    architecture_tier: str = "professional",
+    scale_estimates: dict = None,
+    constraints: list = None,
+    analysis_id: str = "",
+    db_session_factory = None
 ) -> AsyncGenerator[str, None]:
     """
     Executes the 10-agent collaborative reasoning workflow.
     Yields step-by-step logs for the agent process, then saves output to DB.
     """
+    if scale_estimates is None: scale_estimates = {}
+    if constraints is None: constraints = []
     start_time = time.time()
     
     # 10 Multi-Agent Pipeline Steps
@@ -65,7 +68,7 @@ async def run_agent_orchestrator(
         ("analyzer", "Business Analyzer", "Analyzing system goals & scope boundaries..."),
         ("domain", "Domain Classifier", "Classifying domain taxonomy & picking building blocks..."),
         ("requirements", "Requirements Extractor", "Extracting functional and SLA constraints..."),
-        ("architecture", "Architecture Planner", "Selecting scale-driven topology & service components..."),
+        ("architecture", "Architecture Planner", f"Selecting {architecture_tier.upper()} tier topology & components..."),
         ("tech_selector", "Technology Selector", "Choosing stacks with explicit rationale & trade-offs..."),
         ("database", "Database Architect", "Designing DDL schema & indexing strategies..."),
         ("api", "API Spec Agent", "Designing REST OpenAPI contracts & payload structures..."),
@@ -74,11 +77,11 @@ async def run_agent_orchestrator(
         ("diagrams", "Visual Diagram Agent", "Compiling high-contrast Mermaid & ASCII diagrams..."),
     ]
     
-    yield json.dumps({"step": "init", "message": "Orchestrator initiating 10-agent multi-stage collaboration cycle..."})
+    yield json.dumps({"step": "init", "message": f"Orchestrator initiating 10-agent collaboration cycle ({architecture_tier.title()} Tier)..."})
     await asyncio.sleep(0.4)
     
     try:
-        analysis_data = get_mock_analysis(business_problem, scale_estimates, constraints)
+        analysis_data = get_mock_analysis(business_problem, scale_estimates, constraints, architecture_tier=architecture_tier)
         user_prompt = _build_user_prompt(business_problem, scale_estimates, constraints)
 
         if settings.OPENAI_API_KEY:

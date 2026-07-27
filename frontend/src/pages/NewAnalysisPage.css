@@ -36,6 +36,67 @@
   gap: 1.5rem;
 }
 
+.tier-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .tier-grid { grid-template-columns: 1fr; }
+}
+
+.tier-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tier-card:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+.tier-card.selected {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+}
+
+.tier-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tier-icon { color: var(--accent-primary); }
+
+.tier-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.tier-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
 .scale-section { margin-top: 0.5rem; }
 
 .scale-title {

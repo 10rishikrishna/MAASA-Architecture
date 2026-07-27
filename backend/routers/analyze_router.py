@@ -20,6 +20,7 @@ router = APIRouter(prefix="/analyze", tags=["Analysis"])
 
 class AnalyzeRequest(BaseModel):
     business_problem: str
+    architecture_tier: Optional[str] = "professional"
     scale_estimates: Optional[dict] = {}
     constraints: Optional[List[str]] = []
 
@@ -67,6 +68,7 @@ async def stream_analysis(
     async def event_generator():
         async for chunk in run_agent_orchestrator(
             business_problem=payload.business_problem,
+            architecture_tier=payload.architecture_tier or "professional",
             scale_estimates=payload.scale_estimates or {},
             constraints=payload.constraints or [],
             analysis_id=analysis_id,
@@ -117,6 +119,7 @@ def start_analysis(
         async def _run():
             async for _ in run_agent_orchestrator(
                 business_problem=payload.business_problem,
+                architecture_tier=payload.architecture_tier or "professional",
                 scale_estimates=payload.scale_estimates or {},
                 constraints=payload.constraints or [],
                 analysis_id=analysis_id,
