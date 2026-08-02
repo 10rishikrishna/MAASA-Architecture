@@ -1,7 +1,7 @@
 // src/pages/NewAnalysisPage.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Database, Server, Shield, Zap as ZapIcon, GitBranch, FileText, Cpu, CheckSquare, Layers, Sparkles, ShieldCheck, Globe } from 'lucide-react';
+import { Zap, ArrowLeft, Loader2, CheckCircle, AlertCircle, ChevronRight, Database, Server, Shield, GitBranch, FileText, Cpu, CheckSquare, Layers, Sparkles, ShieldCheck, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './NewAnalysisPage.css';
 
@@ -239,15 +239,15 @@ export default function NewAnalysisPage() {
                 <div className="scale-grid">
                   <div className="form-group">
                     <label className="form-label">Concurrent Users</label>
-                    <input className="input" placeholder="10,000" value={scaleEstimates.users} onChange={e => setScaleEstimates({...scaleEstimates, users: e.target.value})} disabled={loading} />
+                    <input className="input" placeholder="10,000" value={scaleEstimates.users} onChange={e => setScaleEstimates({ ...scaleEstimates, users: e.target.value })} disabled={loading} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Daily Requests</label>
-                    <input className="input" placeholder="1,000,000" value={scaleEstimates.daily_requests} onChange={e => setScaleEstimates({...scaleEstimates, daily_requests: e.target.value})} disabled={loading} />
+                    <input className="input" placeholder="1,000,000" value={scaleEstimates.daily_requests} onChange={e => setScaleEstimates({ ...scaleEstimates, daily_requests: e.target.value })} disabled={loading} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Monthly Budget</label>
-                    <input className="input" placeholder="$5,000" value={scaleEstimates.budget} onChange={e => setScaleEstimates({...scaleEstimates, budget: e.target.value})} disabled={loading} />
+                    <input className="input" placeholder="$5,000" value={scaleEstimates.budget} onChange={e => setScaleEstimates({ ...scaleEstimates, budget: e.target.value })} disabled={loading} />
                   </div>
                 </div>
               </div>

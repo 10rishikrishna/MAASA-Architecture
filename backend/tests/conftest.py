@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_maasa.db"
+os.environ["DATABASE_URL"] = "sqlite:///./test_mosaic_studio.db"
 os.environ["JWT_SECRET"] = "test-secret-key-for-testing"
 
 from backend.database import Base, get_db
@@ -13,7 +13,7 @@ from backend.auth import get_password_hash, create_access_token
 from backend.database import User, generate_uuid
 
 # Use a separate in-memory-like file DB for tests
-TEST_DB_URL = "sqlite:///./test_maasa.db"
+TEST_DB_URL = "sqlite:///./test_mosaic_studio.db"
 test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 

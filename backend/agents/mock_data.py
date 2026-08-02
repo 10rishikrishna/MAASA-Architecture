@@ -1,4 +1,8 @@
 # backend/agents/mock_data.py
+"""
+Mosaic Studio - Domain Knowledge Base & Mock Analysis Generator
+Generates rich, domain-aware architecture analyses with 3-tier explanations.
+"""
 import json
 
 DOMAIN_KNOWLEDGE_BASE = {
@@ -83,6 +87,7 @@ DOMAIN_KNOWLEDGE_BASE = {
     }
 }
 
+
 def classify_domain(business_problem: str) -> str:
     p = business_problem.lower()
     if any(k in p for k in ["cybersecurity", "security", "threat", "soc", "siem", "endpoint", "malware", "vulnerability", "firewall", "ids"]):
@@ -98,6 +103,7 @@ def classify_domain(business_problem: str) -> str:
     else:
         return "SaaS Platform"
 
+
 def select_pattern_by_scale(scale_estimates: dict, tier: str = "professional") -> tuple[str, str]:
     if tier == "basic":
         return "Monolithic Architecture (Starter MVP)", "Single unified application server with direct database connection. Optimized for fast setup, low cost, and minimal operational overhead."
@@ -105,13 +111,13 @@ def select_pattern_by_scale(scale_estimates: dict, tier: str = "professional") -
         return "Modular Monolith (Production Ready)", "Clean domain separation within a single deployable unit. Uses a Redis cache layer and primary PostgreSQL database for solid production readiness."
     elif tier == "enterprise":
         return "Global Event-Driven Microservices (Mesh)", "Multi-region active-active deployment with an event streaming bus (Kafka), zero-trust mTLS service mesh, and automated multi-AZ failover."
-    else: # professional
+    else:
         return "Microservices Architecture (High Availability)", "Independent microservices behind a Kong API Gateway, with read replicas, background task queues, and auto-scaling container runtimes."
+
 
 def generate_high_contrast_mermaid(domain: str, components: list, tier: str = "professional") -> str:
     svcs = components[:4]
     mermaid_code = f"""graph TD
-    %% High-Contrast Dark-Mode Theme Definitions
     classDef client fill:#1e1b4b,stroke:#818cf8,color:#ffffff,stroke-width:2px;
     classDef edge_gw fill:#311042,stroke:#c084fc,color:#ffffff,stroke-width:2px;
     classDef svc fill:#064e3b,stroke:#34d399,color:#ffffff,stroke-width:2px;
@@ -141,23 +147,75 @@ def generate_high_contrast_mermaid(domain: str, components: list, tier: str = "p
 """
     return mermaid_code
 
+
+# ── 3-Tier Explanation Generators ────────────────────────────────────────────
+
+def generate_brief_explanation(domain: str, components: list, db_data: str, pattern: str, tier: str) -> str:
+    """Brief: 2-3 sentences, high-level overview."""
+    comp_names = [c["name"] for c in components[:3]]
+    return (
+        f"**{domain} Architecture ({tier} Tier):** "
+        f"Uses {pattern} with {len(components)} core services ({', '.join(comp_names)}). "
+        f"Database: {db_data}. Optimized for production-grade reliability and scalability."
+    )
+
+
+def generate_long_explanation(domain: str, components: list, db_data: str, pattern: str, tier: str) -> str:
+    """Long: 5-8 sentences with component details and trade-offs."""
+    comp_details = "\n".join([
+        f"- **{c['name']}** (`{c['tech']}`): {c['reason']} Trade-offs: {c['tradeoffs']}"
+        for c in components[:5]
+    ])
+    return (
+        f"**{domain} Architecture ({tier} Tier) - Detailed Overview:**\n\n"
+        f"**Pattern:** {pattern}\n\n"
+        f"**Components:**\n{comp_details}\n\n"
+        f"**Database Layer:** {db_data}\n\n"
+        f"**Key Benefits:** Independent scaling, fault isolation, and clean team boundaries."
+    )
+
+
+def generate_detailed_explanation(domain: str, components: list, db_data: str, pattern: str, tier: str, kb_data: dict) -> str:
+    """Detailed: Full technical depth with all components, scores, and critique."""
+    comp_details = "\n".join([
+        f"### {c['name']}\n"
+        f"- **Technology:** {c['tech']}\n"
+        f"- **Purpose:** {c['reason']}\n"
+        f"- **Alternatives:** {', '.join(c['alternatives'])}\n"
+        f"- **Trade-offs:** {c['tradeoffs']}"
+        for c in components
+    ])
+    return (
+        f"# {domain} Architecture - Full Technical Specification ({tier} Tier)\n\n"
+        f"## Architecture Pattern\n"
+        f"**Pattern:** {pattern}\n\n"
+        f"## System Components\n\n{comp_details}\n\n"
+        f"## Database Layer\n**Type:** {db_data}\n\n"
+        f"## Performance Scores\n"
+        f"- Security: {kb_data['security_score']}/100\n"
+        f"- Scalability: {kb_data['scalability_score']}/100\n"
+        f"- Cost: {kb_data['cost_score']}/100\n\n"
+        f"## Expert Critique\n{kb_data['critique']}"
+    )
+
+
 def get_mock_analysis(business_problem: str, scale_estimates: dict = None, constraints: list = None, architecture_tier: str = "professional") -> dict:
     if scale_estimates is None: scale_estimates = {}
     if constraints is None: constraints = []
-    
+
     domain = classify_domain(business_problem)
     kb_data = DOMAIN_KNOWLEDGE_BASE.get(domain, DOMAIN_KNOWLEDGE_BASE["SaaS Platform"])
-    
+
     users = scale_estimates.get("users", "50,000")
     requests = scale_estimates.get("daily_requests", "1,000,000")
     budget = scale_estimates.get("budget", "$5,000/month")
-    
+
     tier_name = architecture_tier.title()
     pattern, pattern_justification = select_pattern_by_scale(scale_estimates, architecture_tier)
     components = kb_data["services"]
-    
+
     mermaid_diagram = generate_high_contrast_mermaid(domain, components, architecture_tier)
-    
+
     ascii_diagram = f"""
 +-----------------+      +--------------------+      +-----------------------+
 |  User Clients   | ---> |  Cloudflare WAF    | ---> |  API Gateway (Kong)   |
@@ -176,65 +234,32 @@ def get_mock_analysis(business_problem: str, scale_estimates: dict = None, const
                       +----------------------------------------------------------------------------------+
 """
 
-    # Interactive Explanation Modes Data
+    # 3-Tier Explanation Modes
+    brief_explanation = generate_brief_explanation(domain, components, kb_data["db"], pattern, tier_name)
+    long_explanation = generate_long_explanation(domain, components, kb_data["db"], pattern, tier_name)
+    detailed_explanation = generate_detailed_explanation(domain, components, kb_data["db"], pattern, tier_name, kb_data)
+
     story_mode_explanation = (
-        f"🎬 **The {domain} Mission: How Your Architecture Works Like a Grand Movie Production**\n\n"
+        f"**The {domain} Mission: How Your Architecture Works Like a Grand Movie Production**\n\n"
         f"Imagine your system as a high-security movie studio set!\n\n"
-        f"1. **The Doorman (Cloudflare CDN / WAF)**: When users arrive at your website, the Doorman checks their badges, blocks intruders, and lets legitimate visitors pass through fast.\n"
-        f"2. **The Concierge (API Gateway)**: The Concierge receives the request and **Dispatches** (directs) traffic to the exact specialist service needed.\n"
-        f"3. **The Specialists ({components[0]['name']} & {components[1]['name']})**: Each service has one job and does it flawlessly. They don't interfere with each other.\n"
-        f"4. **The Flash Notepad (Redis Cache)**: Instead of opening heavy filing cabinets every second, workers scribble frequent notes on a lightning-fast whiteboard.\n"
-        f"5. **The Master Vault ({kb_data['db'].split(' ')[0]})**: All critical records, user accounts, and audit trails are locked safely inside the indestructible vault!"
+        f"1. **The Doorman (Cloudflare CDN / WAF):** When users arrive at your website, the Doorman checks their badges, blocks intruders, and lets legitimate visitors pass through fast.\n"
+        f"2. **The Concierge (API Gateway):** The Concierge receives the request and Dispatches (directs) traffic to the exact specialist service needed.\n"
+        f"3. **The Specialists ({components[0]['name']} & {components[1]['name']}):** Each service has one job and does it flawlessly. They don't interfere with each other.\n"
+        f"4. **The Flash Notepad (Redis Cache):** Instead of opening heavy filing cabinets every second, workers scribble frequent notes on a lightning-fast whiteboard.\n"
+        f"5. **The Master Vault ({kb_data['db'].split(' ')[0]}):** All critical records, user accounts, and audit trails are locked safely inside the indestructible vault!"
     )
 
     eli5_terms = [
-        {
-            "term": "Dispatch",
-            "symbol": "➔ (Forward Arrow)",
-            "meaning": "Routing an incoming user request from the API Gateway to the specific backend service responsible for processing it.",
-            "analogy": "Like a hospital receptionist sending a patient to the Cardiology room instead of Radiology."
-        },
-        {
-            "term": "Redis Cache",
-            "symbol": "🛢️ (Cylinder Box)",
-            "meaning": "An in-memory, ultra-fast data store used to hold active user sessions and frequent queries in RAM.",
-            "analogy": "Like keeping a cheat-sheet on your desk instead of walking to the library every time you need an answer."
-        },
-        {
-            "term": "API Gateway",
-            "symbol": "🛡️ (Security Shield Box)",
-            "meaning": "The single front door that receives all web and mobile traffic, authenticates user tokens, and enforces rate limits.",
-            "analogy": "The airport security checkpoint verifying boarding passes before letting passengers into terminal gates."
-        },
-        {
-            "term": "Cloudflare WAF / CDN",
-            "symbol": "🌐 (Edge Network Box)",
-            "meaning": "Web Application Firewall & Content Delivery Network operating at the global edge to block malicious traffic and cache static assets.",
-            "analogy": "Surrounding your fortress with a moat and security guards stationed in every major city around the world."
-        },
-        {
-            "term": "Cylinder Shapes [(...)]",
-            "symbol": "[( Database Node )]",
-            "meaning": "Standard architectural symbol for databases and storage engines holding structured tables or logs.",
-            "analogy": "A physical filing cabinet or bank safe vault."
-        },
-        {
-            "term": "Arrows & Connecting Lines",
-            "symbol": "--> |Action|",
-            "meaning": "Represents direction of network requests, HTTP/gRPC API calls, or data streaming flows between nodes.",
-            "analogy": "Highways connecting different buildings in a city."
-        }
+        {"term": "Dispatch", "symbol": "(Forward Arrow)", "meaning": "Routing an incoming user request from the API Gateway to the specific backend service.", "analogy": "Like a hospital receptionist sending a patient to the Cardiology room instead of Radiology."},
+        {"term": "Redis Cache", "symbol": "(Cylinder Box)", "meaning": "An in-memory, ultra-fast data store used to hold active user sessions and frequent queries.", "analogy": "Like keeping a cheat-sheet on your desk instead of walking to the library every time."},
+        {"term": "API Gateway", "symbol": "(Security Shield Box)", "meaning": "The single front door that receives all web and mobile traffic, authenticates user tokens, and enforces rate limits.", "analogy": "The airport security checkpoint verifying boarding passes before letting passengers into terminal gates."},
+        {"term": "Cloudflare WAF / CDN", "symbol": "(Edge Network Box)", "meaning": "Web Application Firewall & Content Delivery Network operating at the global edge.", "analogy": "Surrounding your fortress with a moat and security guards stationed in every major city."},
+        {"term": "Database", "symbol": "[( Database Node )]", "meaning": "Standard architectural symbol for databases and storage engines holding structured tables.", "analogy": "A physical filing cabinet or bank safe vault."},
     ]
 
     analogy_explanations = [
-        {
-            "concept": "Microservices vs Monolith",
-            "explanation": "A Monolith is like a single Swiss Army Knife—everything in one tool. Microservices are like a specialized toolbox with dedicated electric tools for each job."
-        },
-        {
-            "concept": "Read Replicas",
-            "explanation": "Having a primary database with 2 read replicas is like having 1 master writer writing a book and 2 photocopy machines handing out copies to readers."
-        }
+        {"concept": "Microservices vs Monolith", "explanation": "A Monolith is like a single Swiss Army Knife -- everything in one tool. Microservices are like a specialized toolbox with dedicated tools for each job."},
+        {"concept": "Read Replicas", "explanation": "Having a primary database with 2 read replicas is like having 1 master writer writing a book and 2 photocopy machines handing out copies to readers."},
     ]
 
     return {
@@ -272,20 +297,19 @@ def get_mock_analysis(business_problem: str, scale_estimates: dict = None, const
             ],
             "story_mode": story_mode_explanation,
             "eli5_terms": eli5_terms,
-            "analogies": analogy_explanations
+            "analogies": analogy_explanations,
+            "explanations": {
+                "brief": brief_explanation,
+                "long": long_explanation,
+                "detailed": detailed_explanation,
+            }
         },
         "database_schema": {
             "database_type": kb_data["db"],
             "justification": f"Selected to suit the access patterns of {domain}. Ensures strong transactional integrity where needed and fast low-latency lookups for operational data.",
             "schemas": [
-                {
-                    "table_name": "domain_events",
-                    "sql": "CREATE TABLE domain_events (\n  id UUID PRIMARY KEY,\n  event_type VARCHAR(100) NOT NULL,\n  payload JSONB NOT NULL,\n  status VARCHAR(50) NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);"
-                },
-                {
-                    "table_name": "audit_logs",
-                    "sql": "CREATE TABLE audit_logs (\n  id UUID PRIMARY KEY,\n  actor_id UUID NOT NULL,\n  action VARCHAR(255) NOT NULL,\n  resource_id VARCHAR(255) NOT NULL,\n  ip_address VARCHAR(45),\n  timestamp TIMESTAMP DEFAULT NOW()\n);"
-                }
+                {"table_name": "domain_events", "sql": "CREATE TABLE domain_events (\n  id UUID PRIMARY KEY,\n  event_type VARCHAR(100) NOT NULL,\n  payload JSONB NOT NULL,\n  status VARCHAR(50) NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);"},
+                {"table_name": "audit_logs", "sql": "CREATE TABLE audit_logs (\n  id UUID PRIMARY KEY,\n  actor_id UUID NOT NULL,\n  action VARCHAR(255) NOT NULL,\n  resource_id VARCHAR(255) NOT NULL,\n  ip_address VARCHAR(45),\n  timestamp TIMESTAMP DEFAULT NOW()\n);"}
             ],
             "indexing_strategies": [
                 "Index idx_domain_events_type ON domain_events(event_type, created_at DESC) for event queries.",
@@ -295,20 +319,8 @@ def get_mock_analysis(business_problem: str, scale_estimates: dict = None, const
         "api_specification": {
             "protocol": "REST HTTP / JSON & gRPC Internal",
             "endpoints": [
-                {
-                    "method": "POST",
-                    "path": "/api/v1/events",
-                    "description": f"Ingests operational events into the {components[0]['name']}.",
-                    "request_body": "{\n  \"event_type\": \"string\",\n  \"data\": {}\n}",
-                    "response_body": "{\n  \"status\": \"received\",\n  \"event_id\": \"uuid\"\n}"
-                },
-                {
-                    "method": "GET",
-                    "path": "/api/v1/metrics",
-                    "description": f"Retrieves real-time aggregated metrics from {components[1]['name']}.",
-                    "query_params": "timeframe=1h, limit=50",
-                    "response_body": "{\n  \"metrics\": [],\n  \"count\": 50\n}"
-                }
+                {"method": "POST", "path": "/api/v1/events", "description": f"Ingests operational events into the {components[0]['name']}.", "request_body": '{\n  "event_type": "string",\n  "data": {}\n}', "response_body": '{\n  "status": "received",\n  "event_id": "uuid"\n}'},
+                {"method": "GET", "path": "/api/v1/metrics", "description": f"Retrieves real-time aggregated metrics from {components[1]['name']}.", "query_params": "timeframe=1h, limit=50", "response_body": '{\n  "metrics": [],\n  "count": 50\n}'}
             ]
         },
         "deployment_config": {
@@ -321,10 +333,10 @@ provider "aws" {
 
 module "vpc" {
   source = "terraform-aws-modules/vpc/aws"
-  name   = "maasa-domain-vpc"
+  name   = "mosaic-studio-vpc"
   cidr   = "10.0.0.0/16"
   azs    = ["us-east-1a", "us-east-1b"]
-  
+
   public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets = ["10.0.10.0/24", "10.0.11.0/24"]
   enable_nat_gateway = true
@@ -346,7 +358,7 @@ spec:
     spec:
       containers:
       - name: service
-        image: maasa-service:latest
+        image: mosaic-studio-service:latest
         ports:
         - containerPort: 8000
 """
@@ -355,19 +367,17 @@ spec:
             "vulnerability_mitigations": [
                 f"Domain Security ({domain}): Network segmentation prevents unauthenticated lateral movement.",
                 "Authentication: JWT tokens signed with RS256 algorithm.",
-                "WAF Edge: Cloudflare Web Application Firewall blocks SQLi, XSS, and bot scrapers."
+                "WAF Edge: Cloudflare Web Application Firewall blocks SQLi, XSS, and bot scrapers.",
+                "Rate Limiting: API Gateway enforces per-IP and per-user rate limits.",
+                "Encryption: TLS 1.3 for all data in transit, AES-256 for data at rest.",
             ],
             "compliance": f"Tailored for {domain} compliance requirements with tamper-evident audit logs.",
-            "scores": {
-                "security": kb_data["security_score"],
-                "scalability": kb_data["scalability_score"],
-                "cost": kb_data["cost_score"]
-            },
+            "scores": {"security": kb_data["security_score"], "scalability": kb_data["scalability_score"], "cost": kb_data["cost_score"]},
             "reviewer_critique": kb_data["critique"]
         },
         "performance_strategies": {
-            "caching": "Redis Cache with TTL policies tailored for domain queries.",
-            "optimization": "Gzip/Brotli compression at API Gateway and database connection pooling."
+            "caching": "Redis Cache with TTL policies tailored for domain queries. Session cache: 1 hour. API response cache: 5 minutes.",
+            "optimization": "Gzip/Brotli compression at API Gateway, database connection pooling (20 connections), and CDN for static assets."
         },
         "diagrams": {
             "mermaid": mermaid_diagram,

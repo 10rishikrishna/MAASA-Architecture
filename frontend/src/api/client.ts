@@ -3,7 +3,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 const API_V1  = `${API_URL}/api/v1`;
 
 function getToken(): string | null {
-  return localStorage.getItem('maasa_token');
+  return localStorage.getItem('mosaic_token');
 }
 
 function authHeaders(): HeadersInit {
@@ -25,8 +25,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   if (res.status === 401) {
-    localStorage.removeItem('maasa_token');
-    localStorage.removeItem('maasa_user');
+    localStorage.removeItem('mosaic_token');
+    localStorage.removeItem('mosaic_user');
     window.location.href = '/login';
     throw new Error('Unauthorized');
   }
@@ -42,7 +42,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ── Auth ──────────────────────────────────────────────────
 
-export interface AuthPayload { access_token: string; user_id: string; name: string; email: string; plan: string; }
+export interface AuthPayload { access_token: string; refresh_token: string; user_id: string; name: string; email: string; plan: string; }
 export interface UserProfile  { user_id: string; email: string; name: string; plan: string; profile_picture_url?: string; }
 
 export const authApi = {
@@ -51,6 +51,12 @@ export const authApi = {
 
   login: (email: string, password: string) =>
     request<AuthPayload>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+
+  refresh: (refresh_token: string) =>
+    request<AuthPayload>('/auth/refresh', { method: 'POST', body: JSON.stringify({ refresh_token }) }),
+
+  logout: (refresh_token: string) =>
+    request<{ success: boolean }>('/auth/logout', { method: 'POST', body: JSON.stringify({ refresh_token }) }),
 
   me: () => request<UserProfile>('/auth/me'),
 
@@ -72,11 +78,11 @@ export interface AnalysisSummary {
 }
 export interface AnalysisDetail extends AnalysisSummary {
   requirements?:          { functional: string[]; non_functional: string[] };
-  architecture_design?:   { system_type: string; pattern: string; justification: string; components: any[] };
+  architecture_design?:   { system_type: string; pattern: string; justification: string; components: any[]; story_mode?: string; eli5_terms?: { term: string; symbol: string; meaning: string; analogy: string }[]; explanations?: { brief: string; long: string; detailed: string } };
   database_schema?:       { database_type: string; justification: string; schemas: any[]; indexing_strategies: string[] };
   api_specification?:     { protocol: string; endpoints: any[] };
   deployment_config?:     { infrastructure_as_code: string; orchestration: string; terraform_sample: string; kubernetes_manifest: string };
-  security_audit?:        { vulnerability_mitigations: string[]; compliance: string };
+  security_audit?:        { vulnerability_mitigations: string[]; compliance: string; scores?: { security: number; scalability: number; cost: number } };
   performance_strategies?:{ caching: string; optimization: string };
   diagrams?:              { mermaid: string; ascii: string };
 }
@@ -191,18 +197,22 @@ export const auditApi = {
 // ── Chat ──────────────────────────────────────────────────
 
 export interface ChatMessage {
-  role: string; content: string; timestamp: string;
+  role: string; content: string; timestamp: string; explanation_level?: string;
 }
 
 export interface ChatResponse {
   response: string;
   follow_up_suggestions: string[];
   conversation_length: number;
+  explanation_level: string;
 }
 
 export const chatApi = {
-  send:    (analysisId: string, content: string) =>
-    request<ChatResponse>(`/chat/${analysisId}/send`, { method: 'POST', body: JSON.stringify({ content }) }),
+  send:    (analysisId: string, content: string, explanationLevel: string = 'brief') =>
+    request<ChatResponse>(`/chat/${analysisId}/send`, {
+      method: 'POST',
+      body: JSON.stringify({ content, explanation_level: explanationLevel }),
+    }),
   history: (analysisId: string) => request<{ messages: ChatMessage[] }>(`/chat/${analysisId}/history`),
   clear:   (analysisId: string) => request<{ success: boolean }>(`/chat/${analysisId}/clear`, { method: 'POST' }),
 };

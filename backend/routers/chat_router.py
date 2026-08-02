@@ -1,10 +1,14 @@
-# backend/routers/chat.py
+# backend/routers/chat_router.py
+"""
+Mosaic Studio - Context-Aware Architecture Chatbot
+Provides intelligent, analysis-contextual responses with 3 explanation tiers.
+"""
 import re
 import random
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from backend.database import get_db, User, Analysis, ChatHistory
 from backend.auth import get_current_user
@@ -12,311 +16,467 @@ from backend.config import settings
 
 router = APIRouter(prefix="/chat", tags=["Architecture Discussion Chat"])
 
+
 class ChatMessageRequest(BaseModel):
     content: str
+    explanation_level: Optional[str] = "brief"  # brief, long, detailed
+
 
 class ChatMessageResponse(BaseModel):
     response: str
     follow_up_suggestions: List[str]
     conversation_length: int
+    explanation_level: str
 
-SULAIMAN_DIALOGUES = {
-    "greetings": [
-        "Njan Sulaiman alla... Hanuman aanu. Pande ennod PWD officer Thamarassery Churam erangiyappo chodichathaa. 😄 Ningal sheriaya sthalath aanu vannirikkunnath, doubt okke namukku fix cheyyam."
-    ],
-    "doubt": [
-        "Athre ullu? Deyy ippo sheriakki theraam. 😄",
-        "Ohoo ithaano karyam? Deyy ippo sheriakki theraam."
-    ],
-    "debugging": [
-        "Karim ee aa cheriya spanner ing eduthe... dee ippo sheriakki theraam. 🔧"
-    ],
-    "argument": [
-        "Enthaanu thaamasha aakaano? Heh... venda ketto. 😅"
-    ],
-    "success": [
-        "Kando... paranjille, ippo sheri aaki theraam nn. 😎",
-        "Athaanu nammade pani. System set! 🚀"
-    ]
+
+# ── 3-Tier Explanation System ────────────────────────────────────────────────
+
+EXPLANATION_TEMPLATES = {
+    "brief": {
+        "max_sentences": 3,
+        "include_code": False,
+        "include_diagram": False,
+        "include_analogy": False,
+        "style": "concise",
+    },
+    "long": {
+        "max_sentences": 8,
+        "include_code": True,
+        "include_diagram": True,
+        "include_analogy": True,
+        "style": "balanced",
+    },
+    "detailed": {
+        "max_sentences": 999,
+        "include_code": True,
+        "include_diagram": True,
+        "include_analogy": True,
+        "style": "comprehensive",
+    },
 }
 
-def generate_contextual_response(question: str, analysis: Analysis) -> tuple[str, List[str]]:
-    q = question.lower().strip()
-    
-    # Contextual metadata from analysis
-    arch = analysis.architecture_design or {}
-    pattern = arch.get("pattern", "Microservices Architecture")
-    sys_type = arch.get("system_type", "Domain Architecture")
-    tier = arch.get("architecture_tier", "Professional")
-    components = arch.get("components", [])
-    comp_names = [c.get("name", "Service") for c in components] if components else ["Core API Service", "Auth Service"]
-    
-    db_schema = analysis.database_schema or {}
-    db_type = db_schema.get("database_type", "PostgreSQL")
-    
-    sec_audit = analysis.security_audit or {}
-    compliance = sec_audit.get("compliance", "SOC2 / GDPR compliance")
-    sec_score = sec_audit.get("scores", {}).get("security", 92)
-    
-    api_spec = analysis.api_specification or {}
-    endpoints = api_spec.get("endpoints", [])
-    
-    prefix_quote = ""
-    
-    # 1. Check for Greetings / Intros
-    if any(re.search(r'\b' + k + r'\b', q) for k in ["hi", "hello", "hey", "hai", "good morning", "greetings", "who are you"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["greetings"]) + "\n\n"
-        comp_str = ", ".join(comp_names[:4]) if comp_names else "Core Services"
-        ans = (
-            f"{prefix_quote}"
-            f"**System Blueprint Summary ({tier} Tier):**\n"
-            f"- **System Type:** {sys_type}\n"
-            f"- **Pattern:** {pattern}\n"
-            f"- **Core Building Blocks:** {comp_str}\n"
-            f"- **Database Engine:** {db_type}\n"
-            f"- **Security Score:** {sec_score}/100 🛡️ ({compliance})\n\n"
-            f"What specific component, API endpoint, or cloud deployment strategy would you like to discuss today? 😄"
-        )
-        suggestions = ["Why did you choose this architecture?", "Explain database choices", "List all API endpoints"]
 
-    # 2. Check for Arguments / Objections / Disagreements
-    elif any(k in q for k in ["wrong", "you are wrong", "no", "not correct", "argue", "terrible", "bad"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["argument"]) + "\n\n"
-        ans = (
-            f"{prefix_quote}"
-            f"Let's look at the trade-offs! For **{analysis.business_problem[:50]}...**, the choice of **{pattern}** was made because:\n"
-            f"1. **Fault Isolation:** High load spikes in one worker won't crash user auth.\n"
-            f"2. **Scaling:** Individual components like `{comp_names[0] if comp_names else 'API Service'}` scale independently.\n\n"
-            f"If you prefer a simpler layout (like Monolith), we can adjust the Architecture Tier to **Basic**! 💡"
-        )
-        suggestions = ["Show monolith alternative", "Explain trade-offs", "What about budget?"]
+def get_explanation_template(level: str) -> dict:
+    return EXPLANATION_TEMPLATES.get(level, EXPLANATION_TEMPLATES["brief"])
 
-    # 3. Check for Bugs / Crashes / Errors
-    elif any(k in q for k in ["bug", "not working", "crash", "error", "failed", "broken", "issue"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["debugging"]) + "\n\n"
-        ans = (
-            f"{prefix_quote}"
-            f"Here is how our architecture prevents and recovers from system errors:\n"
-            f"- **Circuit Breakers:** API Gateway (Kong) immediately stops cascading failure if backend pods slow down.\n"
-            f"- **Dead Letter Queues (DLQ):** Failed asynchronous event messages are safely stored for auto-retry.\n"
-            f"- **Health Probes:** Kubernetes liveness/readiness probes restart unhealthy container pods within seconds! ⚡"
-        )
-        suggestions = ["How does failover work?", "Show security audit", "What are retry policies?"]
 
-    # 4. Check for Success / Praise / Thanks
-    elif any(k in q for k in ["fixed", "worked", "thanks", "thank you", "wow", "solved", "great", "awesome"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["success"]) + "\n\n"
-        ans = (
-            f"{prefix_quote}"
-            f"Glad you loved the design! You can export your full architecture report as **Markdown (.md)** or **JSON**, "
-            f"or copy the Terraform IaC scripts under the Deployment tab to spin up infrastructure instantly. 🚀"
-        )
-        suggestions = ["Download Markdown report", "View Terraform IaC", "Ask another question"]
+# ── Context-Aware Response Generator ────────────────────────────────────────
 
-    # 5. Check for Architecture Selection / "Why did you choose" (with fuzzy match for typos like "whu did u chose")
-    elif any(k in q for k in ["why", "chose", "choose", "whu", "pattern", "topology", "reason", "decision"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
-        justification = arch.get("justification", f"Selected {pattern} for optimal component isolation.")
-        ans = (
-            f"{prefix_quote}"
+class ArchitectureContext:
+    """Extracts and structures analysis context for intelligent responses."""
+
+    def __init__(self, analysis: Analysis):
+        self.analysis = analysis
+        self.arch = analysis.architecture_design or {}
+        self.db_schema = analysis.database_schema or {}
+        self.api_spec = analysis.api_specification or {}
+        self.security = analysis.security_audit or {}
+        self.perf = analysis.performance_strategies or {}
+        self.deployment = analysis.deployment_config or {}
+        self.diagrams = analysis.diagrams or {}
+
+    @property
+    def system_type(self) -> str:
+        return self.arch.get("system_type", "Domain Architecture")
+
+    @property
+    def pattern(self) -> str:
+        return self.arch.get("pattern", "Microservices Architecture")
+
+    @property
+    def tier(self) -> str:
+        return self.arch.get("architecture_tier", "Professional")
+
+    @property
+    def components(self) -> list:
+        return self.arch.get("components", [])
+
+    @property
+    def component_names(self) -> list:
+        return [c.get("name", "Service") for c in self.components]
+
+    @property
+    def database_type(self) -> str:
+        return self.db_schema.get("database_type", "PostgreSQL")
+
+    @property
+    def security_score(self) -> int:
+        return self.security.get("scores", {}).get("security", 92)
+
+    @property
+    def compliance(self) -> str:
+        return self.security.get("compliance", "SOC2 / GDPR")
+
+    @property
+    def endpoints(self) -> list:
+        return self.api_spec.get("endpoints", [])
+
+    @property
+    def tables(self) -> list:
+        return self.db_schema.get("schemas", [])
+
+    @property
+    def mitigation_count(self) -> int:
+        return len(self.security.get("vulnerability_mitigations", []))
+
+
+def generate_brief_response(ctx: ArchitectureContext, question: str, topic: str) -> str:
+    """Brief explanation: 2-3 sentences, no code, no diagrams."""
+
+    responses = {
+        "greeting": (
+            f"Welcome to **{ctx.system_type}** ({ctx.tier} tier)! "
+            f"Your architecture uses **{ctx.pattern}** with **{len(ctx.components)} core services** "
+            f"and **{ctx.database_type}** database. How can I help?"
+        ),
+        "architecture": (
+            f"Your system uses **{ctx.pattern}** at the **{ctx.tier} tier**. "
+            f"This pattern was chosen because {ctx.arch.get('justification', 'it provides optimal component isolation')}. "
+            f"The core components are: {', '.join(ctx.component_names[:4])}."
+        ),
+        "database": (
+            f"Your database layer uses **{ctx.database_type}** with {len(ctx.tables)} core tables. "
+            f"This choice was made because {ctx.db_schema.get('justification', 'it suits the access patterns')} "
+            f"and provides strong transactional integrity."
+        ),
+        "api": (
+            f"Your API uses **{ctx.api_spec.get('protocol', 'REST HTTP/JSON')}** with "
+            f"{len(ctx.endpoints)} primary endpoints. All requests pass through the API Gateway "
+            f"for JWT validation and rate limiting."
+        ),
+        "security": (
+            f"Security score: **{ctx.security_score}/100** ({ctx.compliance}). "
+            f"The system has **{ctx.mitigation_count} vulnerability mitigations** in place."
+        ),
+        "cost": (
+            f"Estimated cloud cost for the **{ctx.tier} tier** is approximately **$240/month** "
+            f"on AWS, including compute, database, cache, and API gateway."
+        ),
+    }
+
+    return responses.get(topic, responses["greeting"])
+
+
+def generate_long_response(ctx: ArchitectureContext, question: str, topic: str) -> str:
+    """Long explanation: 5-8 sentences, includes code snippets and analogies."""
+
+    responses = {
+        "greeting": (
+            f"**Welcome to {ctx.system_type} ({ctx.tier} Tier)!**\n\n"
+            f"Your architecture follows the **{ctx.pattern}** pattern. "
+            f"The system is designed to handle high-throughput requests with independent service boundaries.\n\n"
+            f"**Core Building Blocks:**\n"
+            + "\n".join([f"- **{c.get('name')}** (`{c.get('technology', 'N/A')}`): {c.get('reason', '')}" for c in ctx.components[:5]])
+            + f"\n\n**Database:** {ctx.database_type} provides the persistence layer with ACID guarantees. "
+            f"**Security Score:** {ctx.security_score}/100 ({ctx.compliance})."
+        ),
+        "architecture": (
             f"**Architecture Decision Record (ADR):**\n\n"
-            f"We selected **{pattern}** at the **{tier} Tier**.\n\n"
-            f"**Rationale:**\n{justification}\n\n"
-            f"**Key Engineering Benefits:**\n"
-            f"1. **High Concurrency:** Independent worker pools process incoming requests without blocking.\n"
-            f"2. **Zero Downtime Deployments:** Rolling upgrades allow updating individual services without global outages.\n"
-            f"3. **Clean Team Boundaries:** Engineering teams can own dedicated service repos independently. ⚡"
-        )
-        suggestions = ["What are the trade-offs?", "Migration path from monolith?", "Explain component choices"]
+            f"We selected **{ctx.pattern}** at the **{ctx.tier} Tier**.\n\n"
+            f"**Rationale:**\n{ctx.arch.get('justification', 'Optimal component isolation.')}\n\n"
+            f"**Key Benefits:**\n"
+            f"1. **Fault Isolation:** Failure in one service (e.g., {ctx.component_names[0] if ctx.component_names else 'Core Service'}) "
+            f"doesn't cascade to others.\n"
+            f"2. **Independent Scaling:** Each service scales horizontally based on its own load.\n"
+            f"3. **Team Autonomy:** Engineering teams can deploy services independently.\n\n"
+            f"**Trade-offs:** Higher operational complexity vs. monolithic simplicity. "
+            f"Requires service mesh, distributed tracing, and centralized logging."
+        ),
+        "database": (
+            f"**Database Design:**\n\n"
+            f"- **Primary Engine:** `{ctx.database_type}`\n"
+            f"- **Tables:** `{', '.join([t.get('table_name', 'entities') for t in ctx.tables[:5]])}`\n"
+            f"- **Cache Layer:** Redis Distributed Cache (1-hour TTL for sessions)\n"
+            f"- **Indexing:** {len(ctx.db_schema.get('indexing_strategies', []))} index strategies for query optimization\n\n"
+            f"**Schema:**\n"
+            + "\n".join([f"```\n{t.get('sql', '')}\n```" for t in ctx.tables[:2]])
+        ),
+        "api": (
+            f"**API Specification ({ctx.api_spec.get('protocol', 'REST HTTP/JSON')}):**\n\n"
+            + "\n".join([f"- `{ep.get('method')}` **{ep.get('path')}**: {ep.get('description')}" for ep in ctx.endpoints[:5]])
+            + "\n\nAll requests pass through the API Gateway where JWT tokens are validated. "
+            f"Rate limiting is enforced at **{settings.RATE_LIMIT_PER_MINUTE} req/min** per IP."
+        ),
+        "security": (
+            f"**Security Audit (Score: {ctx.security_score}/100):**\n\n"
+            f"**Compliance:** {ctx.compliance}\n\n"
+            f"**Mitigations:**\n"
+            + "\n".join([f"- {m}" for m in ctx.security.get('vulnerability_mitigations', [])[:5]])
+            + "\n\nIntra-service traffic is encrypted via TLS 1.3 mTLS tunnels."
+        ),
+    }
 
-    # 6. Check for Component / Technology Questions
-    elif any(k in q for k in ["component", "service", "stack", "technology", "tech", "node", "building block", "redis", "postgres"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
-        comp_details = ""
-        for c in components[:5]:
-            c_name = c.get("name", "Service")
-            c_tech = c.get("technology", "FastAPI / Node.js")
-            c_reason = c.get("reason", "Handles domain workflows.")
-            comp_details += f"- **{c_name}** (`{c_tech}`): {c_reason}\n"
-            
-        ans = (
-            f"{prefix_quote}"
-            f"Here is the breakdown of components designed for your system:\n\n"
-            f"{comp_details}\n"
-            f"All components communicate asynchronously via event streams or gRPC internal protocols. 🔧"
-        )
-        suggestions = ["Explain database schema", "Show API endpoints", "What about security?"]
+    return responses.get(topic, responses["greeting"])
 
-    # 7. Database Questions
-    elif any(k in q for k in ["database", "db", "sql", "postgres", "schema", "tables", "storage", "cache"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
-        tables = db_schema.get("schemas", [])
-        tbl_names = [t.get("table_name", "entities") for t in tables] if tables else ["users", "events"]
-        ans = (
-            f"{prefix_quote}"
-            f"**Database & Storage Layout:**\n\n"
-            f"- **Primary Storage:** `{db_type}`\n"
-            f"- **Core Tables:** `{', '.join(tbl_names)}`\n"
-            f"- **Session Cache:** Redis Distributed Cache (1-hour TTL)\n"
-            f"- **ACID Protection:** Strict transactional isolation enforced for financial/state mutations. 🛢️"
-        )
-        suggestions = ["Show SQL DDL code", "What is Redis?", "How is indexing configured?"]
 
-    # 8. API / Endpoint Questions
-    elif any(k in q for k in ["api", "endpoint", "rest", "swagger", "openapi", "route", "dispatch"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
-        ep_text = ""
-        for ep in endpoints[:3]:
-            ep_text += f"- `{ep.get('method', 'GET')}` **{ep.get('path', '/api/v1')}**: {ep.get('description', '')}\n"
-            
-        ans = (
-            f"{prefix_quote}"
-            f"**API Specifications ({api_spec.get('protocol', 'REST HTTP / JSON')}):**\n\n"
-            f"{ep_text if ep_text else '- POST /api/v1/events: Ingest operational events'}\n"
-            f"All requests pass through the API Gateway (Kong) where JWT tokens are validated before reaching backend services. 🛡️"
-        )
-        suggestions = ["How are tokens validated?", "Is there rate limiting?", "Show request payloads"]
+def generate_detailed_response(ctx: ArchitectureContext, question: str, topic: str) -> str:
+    """Detailed explanation: Full technical depth with all components."""
 
-    # 9. Security & Compliance
-    elif any(k in q for k in ["security", "vulnerability", "auth", "jwt", "compliance", "hipaa", "soc2", "audit"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
-        mitigations = sec_audit.get("vulnerability_mitigations", [])
-        mit_text = "\n".join([f"- {m}" for m in mitigations[:3]])
-        ans = (
-            f"{prefix_quote}"
-            f"**Security Audit Summary (Score: {sec_score}/100 🛡️):**\n\n"
-            f"**Compliance Target:** {compliance}\n\n"
-            f"**Vulnerability Mitigations:**\n"
-            f"{mit_text}\n\n"
-            f"Intra-service traffic is strictly encrypted using TLS 1.3 mTLS tunnels."
-        )
-        suggestions = ["How to audit API keys?", "Can we add 2FA?", "How is data encrypted at rest?"]
+    responses = {
+        "greeting": (
+            f"**{ctx.system_type} — Full Technical Deep Dive ({ctx.tier} Tier)**\n\n"
+            f"**Architecture Pattern:** {ctx.pattern}\n\n"
+            f"**System Design Philosophy:**\n"
+            f"{ctx.arch.get('justification', 'Optimal component isolation.')}\n\n"
+            f"**Component Breakdown:**\n"
+            + "\n".join([
+                f"### {c.get('name')}\n"
+                f"- **Technology:** {c.get('technology')}\n"
+                f"- **Purpose:** {c.get('reason')}\n"
+                f"- **Alternatives:** {', '.join(c.get('alternatives', []))}\n"
+                f"- **Trade-offs:** {c.get('tradeoffs', 'N/A')}"
+                for c in ctx.components[:6]
+            ])
+            + f"\n\n**Database Layer:**\n"
+            f"- **Engine:** {ctx.database_type}\n"
+            f"- **Justification:** {ctx.db_schema.get('justification', 'N/A')}\n"
+            f"- **Tables:**\n"
+            + "\n".join([f"```\n{t.get('sql', '')}\n```" for t in ctx.tables])
+            + f"\n- **Indexing Strategies:**\n"
+            + "\n".join([f"  - {s}" for s in ctx.db_schema.get('indexing_strategies', [])])
+            + f"\n\n**API Layer:**\n"
+            f"- **Protocol:** {ctx.api_spec.get('protocol', 'REST')}\n"
+            + "\n".join([f"- `{ep.get('method')}` **{ep.get('path')}**\n  {ep.get('description')}" for ep in ctx.endpoints[:6]])
+            + f"\n\n**Security:**\n"
+            f"- **Score:** {ctx.security_score}/100\n"
+            f"- **Compliance:** {ctx.compliance}\n"
+            f"- **Mitigations:**\n"
+            + "\n".join([f"  - {m}" for m in ctx.security.get('vulnerability_mitigations', [])])
+            + f"\n\n**Deployment:**\n"
+            f"- **IaC:** {ctx.deployment.get('infrastructure_as_code', 'Terraform')}\n"
+            f"- **Orchestration:** {ctx.deployment.get('orchestration', 'Kubernetes')}\n"
+            f"```hcl\n{ctx.deployment.get('terraform_sample', '')}\n```\n"
+            f"```yaml\n{ctx.deployment.get('kubernetes_manifest', '')}\n```"
+        ),
+    }
 
-    # 10. Cost & Infrastructure Questions
-    elif any(k in q for k in ["cost", "aws", "budget", "price", "cloud", "terraform", "k8s", "kubernetes"]):
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
-        ans = (
-            f"{prefix_quote}"
-            f"**Cloud Budget Breakdown (AWS Target - {tier} Tier):**\n\n"
-            f"| Component | Technology | Monthly Est. |\n"
-            f"| --- | --- | --- |\n"
-            f"| **WAF / API Gateway** | Cloudflare WAF + AWS ALB | $25.00 |\n"
-            f"| **Compute Runtimes** | AWS ECS Fargate / EKS | $65.00 |\n"
-            f"| **Database Cluster** | Amazon RDS ({db_type.split('+')[0]}) | $120.00 |\n"
-            f"| **Cache & Queue** | ElastiCache Redis | $30.00 |\n"
-            f"| **Total Projected** | **Production Grade** | **~$240.00/mo** |\n\n"
-            f"IaC Terraform templates and Kubernetes manifests are ready under the Deployment tab! ☁️"
-        )
-        suggestions = ["How to reduce costs?", "Can we run on Kubernetes?", "What if traffic doubles?"]
+    return responses.get(topic, _generate_fallback_detailed(ctx, question))
 
-    # 11. General Fallback with Sulaiman Persona
+
+def _generate_fallback_detailed(ctx: ArchitectureContext, question: str) -> str:
+    """Generate a detailed fallback response for any question."""
+    return (
+        f"**Question:** {question}\n\n"
+        f"**Context in {ctx.system_type} ({ctx.pattern}, {ctx.tier} tier):**\n\n"
+        f"In this architecture, the request flows through the following path:\n"
+        f"1. **Client** sends request via HTTPS/TLS\n"
+        f"2. **CDN/WAF** (Cloudflare) filters malicious traffic and caches static assets\n"
+        f"3. **API Gateway** (Kong) validates JWT tokens and enforces rate limits\n"
+        f"4. **Service Mesh** routes to the appropriate service: {', '.join(ctx.component_names[:4])}\n"
+        f"5. **Cache Layer** (Redis) serves frequently accessed data\n"
+        f"6. **Database** ({ctx.database_type}) provides durable persistence\n\n"
+        f"**How this relates to your question:**\n"
+        f"The system handles `{question}` through delegation to **{ctx.component_names[0] if ctx.component_names else 'Core Service'}** "
+        f"which communicates with **{ctx.database_type}** for state management and **Redis** for session caching.\n\n"
+        f"**Key Observability Points:**\n"
+        f"- Prometheus metrics at `/metrics`\n"
+        f"- Jaeger distributed tracing via OpenTelemetry\n"
+        f"- Structured logging to ELK stack\n\n"
+        f"What specific aspect would you like me to elaborate on further?"
+    )
+
+
+# ── Intent Classification ────────────────────────────────────────────────────
+
+INTENT_PATTERNS = {
+    "architecture": ["why", "chose", "choose", "pattern", "topology", "reason", "decision", "design", "overview", "explain"],
+    "database": ["database", "db", "sql", "postgres", "schema", "tables", "storage", "cache", "redis", "index"],
+    "api": ["api", "endpoint", "rest", "swagger", "openapi", "route", "dispatch", "graphql"],
+    "security": ["security", "vulnerability", "auth", "jwt", "compliance", "hipaa", "soc2", "audit", "encrypt"],
+    "cost": ["cost", "aws", "budget", "price", "cloud", "terraform", "k8s", "kubernetes", "deploy"],
+    "component": ["component", "service", "stack", "technology", "tech", "node", "building block"],
+    "troubleshoot": ["bug", "not working", "crash", "error", "failed", "broken", "issue", "debug"],
+    "greeting": ["hi", "hello", "hey", "hai", "good morning", "who are you", "help"],
+    "thanks": ["fixed", "worked", "thanks", "thank you", "wow", "solved", "great", "awesome"],
+}
+
+
+def classify_intent(question: str) -> str:
+    q = question.lower()
+    for intent, keywords in INTENT_PATTERNS.items():
+        if any(k in q for k in keywords):
+            return intent
+    return "general"
+
+
+# ── Main Response Generator ──────────────────────────────────────────────────
+
+def generate_contextual_response(
+    question: str,
+    analysis: Analysis,
+    explanation_level: str = "brief"
+) -> tuple[str, List[str]]:
+    ctx = ArchitectureContext(analysis)
+    intent = classify_intent(question)
+    template = get_explanation_template(explanation_level)
+
+    # Generate response based on explanation level
+    if explanation_level == "detailed":
+        response = generate_detailed_response(ctx, question, intent)
+    elif explanation_level == "long":
+        response = generate_long_response(ctx, question, intent)
     else:
-        prefix_quote = random.choice(SULAIMAN_DIALOGUES["doubt"]) + "\n\n"
-        ans = (
-            f"{prefix_quote}"
-            f"Great question regarding **{question}** for your system! 😄\n\n"
-            f"In this **{pattern}** ({tier} Tier), we handle `{question}` by delegating work to **{comp_names[0] if comp_names else 'Core Service'}** "
-            f"and persisting state to **{db_type}**.\n\n"
-            f"**Key Highlights:**\n"
-            f"1. **Operational Isolation:** Service bounds ensure zero crash propagation.\n"
-            f"2. **Resilience:** Automatic retry policies with exponential backoff at the gateway.\n"
-            f"3. **Observability:** Centralized audit and log streaming.\n\n"
-            f"What else would you like me to detail for you?"
-        )
-        suggestions = ["Explain component interactions", "Show security details", "What is the cost breakdown?"]
+        response = generate_brief_response(ctx, question, intent)
 
-    return ans, suggestions
+    # Generate follow-up suggestions based on intent
+    suggestion_map = {
+        "greeting": [
+            "Why did you choose this architecture?",
+            "Explain database design",
+            "Show API endpoints",
+        ],
+        "architecture": [
+            "What are the trade-offs?",
+            "Show deployment config",
+            "Explain security measures",
+        ],
+        "database": [
+            "Show SQL DDL code",
+            "How is caching configured?",
+            "Explain indexing strategies",
+        ],
+        "api": [
+            "How are tokens validated?",
+            "Is there rate limiting?",
+            "Show request payloads",
+        ],
+        "security": [
+            "How to audit API keys?",
+            "Can we add 2FA?",
+            "Show compliance details",
+        ],
+        "cost": [
+            "How to reduce costs?",
+            "Can we run on Kubernetes?",
+            "What if traffic doubles?",
+        ],
+        "component": [
+            "Explain database schema",
+            "Show API endpoints",
+            "What about security?",
+        ],
+        "troubleshoot": [
+            "How does failover work?",
+            "Show security audit",
+            "What are retry policies?",
+        ],
+        "thanks": [
+            "Download report",
+            "View Terraform IaC",
+            "Ask another question",
+        ],
+        "general": [
+            "Explain architecture",
+            "Show component details",
+            "What is the cost breakdown?",
+        ],
+    }
+
+    suggestions = suggestion_map.get(intent, suggestion_map["general"])
+
+    # Add level-aware suggestions
+    if explanation_level == "brief":
+        suggestions.append("Give me a detailed explanation")
+    elif explanation_level == "long":
+        suggestions.append("Show me the full technical details")
+
+    return response, suggestions[:4]
+
+
+# ── API Endpoints ────────────────────────────────────────────────────────────
 
 @router.post("/{analysis_id}/send", response_model=ChatMessageResponse)
 def send_chat_message(
     analysis_id: str,
     payload: ChatMessageRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     analysis = db.query(Analysis).filter(
         Analysis.id == analysis_id,
-        Analysis.user_id == current_user.id
+        Analysis.user_id == current_user.id,
     ).first()
-    
+
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
-        
-    # Get or create chat history
+
     chat = db.query(ChatHistory).filter(
         ChatHistory.analysis_id == analysis_id,
-        ChatHistory.user_id == current_user.id
+        ChatHistory.user_id == current_user.id,
     ).first()
-    
+
     if not chat:
         chat = ChatHistory(
             analysis_id=analysis_id,
             user_id=current_user.id,
-            messages=[]
+            messages=[],
         )
         db.add(chat)
         db.commit()
         db.refresh(chat)
-        
-    # User message
+
     user_msg = {
         "role": "user",
         "content": payload.content,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
-    
-    # Generate bot response with Sulaiman AI persona
-    ans_content, suggestions = generate_contextual_response(payload.content, analysis)
-    
+
+    ans_content, suggestions = generate_contextual_response(
+        payload.content, analysis, payload.explanation_level or "brief"
+    )
+
     bot_msg = {
         "role": "assistant",
         "content": ans_content,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
+        "explanation_level": payload.explanation_level or "brief",
     }
-    
-    # Update messages
+
     msgs = list(chat.messages)
     msgs.append(user_msg)
     msgs.append(bot_msg)
     chat.messages = msgs
-    
+
     db.commit()
-    
+
     return ChatMessageResponse(
         response=ans_content,
         follow_up_suggestions=suggestions,
-        conversation_length=len(msgs)
+        conversation_length=len(msgs),
+        explanation_level=payload.explanation_level or "brief",
     )
+
 
 @router.get("/{analysis_id}/history")
 def get_chat_history(
     analysis_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     chat = db.query(ChatHistory).filter(
         ChatHistory.analysis_id == analysis_id,
-        ChatHistory.user_id == current_user.id
+        ChatHistory.user_id == current_user.id,
     ).first()
-    
+
     if not chat:
         return {"messages": []}
-        
+
     return {"messages": chat.messages}
+
 
 @router.post("/{analysis_id}/clear")
 def clear_chat_history(
     analysis_id: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     chat = db.query(ChatHistory).filter(
         ChatHistory.analysis_id == analysis_id,
-        ChatHistory.user_id == current_user.id
+        ChatHistory.user_id == current_user.id,
     ).first()
-    
+
     if chat:
         chat.messages = []
         db.commit()
-        
+
     return {"success": True}

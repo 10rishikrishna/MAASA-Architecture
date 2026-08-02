@@ -9,7 +9,7 @@
       "webRoot": "${workspaceFolder}"
     },
     {
-      "name": "MAASA Backend (uvicorn)",
+      "name": "Mosaic Studio Backend (uvicorn)",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",

@@ -14,11 +14,11 @@ describe('Sidebar', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    localStorage.setItem('maasa_token', 'test-token');
-    localStorage.setItem('maasa_user', JSON.stringify(mockUser));
+    localStorage.setItem('mosaic_token', 'test-token');
+    localStorage.setItem('mosaic_user', JSON.stringify(mockUser));
   });
 
-  it('renders MAASA branding', async () => {
+  it('renders Mosaic Studio branding', async () => {
     const { authApi } = await import('../api/client');
     (authApi.me as any).mockResolvedValue(mockUser);
 
@@ -27,7 +27,7 @@ describe('Sidebar', () => {
         <AuthProvider><Sidebar /></AuthProvider>
       </MemoryRouter>
     );
-    expect(screen.getByText('MAASA')).toBeInTheDocument();
+    expect(screen.getByText('Mosaic Studio')).toBeInTheDocument();
   });
 
   it('renders navigation links', async () => {

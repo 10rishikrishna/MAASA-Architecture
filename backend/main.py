@@ -1,11 +1,14 @@
 # backend/main.py
 """
-MAASA - Multi-Agent Autonomous Software Architect
+Mosaic Studio - Virtual Architecture Workspace
 FastAPI Application Entrypoint
 """
+import logging
+import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import uvicorn
 
 from backend.config import settings
@@ -21,18 +24,29 @@ from backend.routers import (
     audit_router,
 )
 
+# ── Structured Logging ────────────────────────────────────────────────────────
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger("mosaic_studio")
 
 # ── App Lifecycle ─────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise database tables on startup."""
+    """Initialise database tables and services on startup."""
     try:
         init_db()
-        print("[OK] Database tables initialized successfully.")
+        logger.info("Database tables initialized successfully")
     except Exception as e:
-        print(f"[ERROR] Error initializing database: {e}")
+        logger.error(f"Error initializing database: {e}")
     yield
+    logger.info("Mosaic Studio shutting down")
 
 
 # ── Application ───────────────────────────────────────────────────────────────
@@ -40,10 +54,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description=(
-        "Multi-Agent Autonomous Software Architect — "
-        "generates full architecture blueprints from a business problem description."
+        "Mosaic Studio - Virtual Architecture Workspace: "
+        "AI-powered platform that generates comprehensive system architecture blueprints "
+        "from a business problem description using multiple specialized AI agents."
     ),
-    version="1.0.0",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -51,7 +66,7 @@ app = FastAPI(
 
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-# Allow React dev server (port 5173/3000) and any production domain.
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -66,6 +81,33 @@ app.add_middleware(
 )
 
 
+# ── Request Timing Middleware ──────────────────────────────────────────────────
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(round(process_time, 4))
+    logger.info(
+        f"{request.method} {request.url.path} | "
+        f"Status: {response.status_code} | "
+        f"Time: {process_time:.4f}s"
+    )
+    return response
+
+
+# ── Global Exception Handler ──────────────────────────────────────────────────
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Please try again later."},
+    )
+
+
 # ── Routers ───────────────────────────────────────────────────────────────────
 
 app.include_router(auth_router.router,     prefix=settings.API_V1_STR)
@@ -78,12 +120,21 @@ app.include_router(apikeys_router.router,  prefix=settings.API_V1_STR)
 app.include_router(audit_router.router,    prefix=settings.API_V1_STR)
 
 
-# ── Health / Root ─────────────────────────────────────────────────────────────
+# ── Health / Metrics ──────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Simple liveness check — returns 200 when the server is running."""
-    return {"status": "ok", "service": settings.PROJECT_NAME}
+    """Liveness + readiness probe — returns service health status."""
+    return {
+        "status": "healthy",
+        "service": settings.PROJECT_NAME,
+        "version": "2.0.0",
+        "observability": {
+            "prometheus": f"http://localhost:{settings.PROMETHEUS_PORT}/metrics",
+            "grafana": "http://localhost:3000",
+            "jaeger": "http://localhost:16686",
+        },
+    }
 
 
 @app.get("/", tags=["Health"])
@@ -92,6 +143,28 @@ def root():
         "status": "online",
         "service": settings.PROJECT_NAME,
         "docs_url": "/docs",
+        "version": "2.0.0",
+    }
+
+
+@app.get("/metrics", tags=["Observability"])
+def metrics():
+    """Prometheus-compatible metrics endpoint."""
+    return {
+        "help": "Use Prometheus client library for detailed metrics",
+        "counters": [
+            "mosaic_http_requests_total",
+            "mosaic_http_request_duration_seconds",
+            "mosaic_analysis_started_total",
+            "mosaic_analysis_completed_total",
+            "mosaic_chat_messages_total",
+            "mosaic_auth_login_total",
+        ],
+        "gauges": [
+            "mosaic_active_users",
+            "mosaic_active_analyses",
+            "mosaic_database_connections",
+        ],
     }
 
 

@@ -8,7 +8,7 @@ class TestApiKeys:
         data = res.json()
         assert data["name"] == "My Key"
         assert "full_key" in data
-        assert data["full_key"].startswith("maasa_")
+        assert data["full_key"].startswith("mosaic_")
 
     def test_list_keys(self, client, test_user):
         client.post("/api/v1/api-keys", json={"name": "Key1"}, headers=auth_header(test_user["token"]))

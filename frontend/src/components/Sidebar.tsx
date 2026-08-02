@@ -28,7 +28,7 @@ export default function Sidebar() {
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-logo">
         <div className="logo-icon">M</div>
-        {!collapsed && <span className="logo-text">MAASA</span>}
+        {!collapsed && <span className="logo-text">Mosaic Studio</span>}
       </div>
 
       <nav className="sidebar-nav">

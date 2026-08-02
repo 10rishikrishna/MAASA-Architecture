@@ -105,7 +105,7 @@ describe('chatApi', () => {
 describe('apiKeysApi', () => {
   it('create sends name', async () => {
     mockFetch.mockReturnValue(mockResponse({
-      id: '1', name: 'K', key_preview: 'maasa_...', full_key: 'maasa_abc',
+      id: '1', name: 'K', key_preview: 'mosaic_...', full_key: 'mosaic_abc',
       created_at: '', expires_at: null, last_used_at: null,
     }, 201));
 

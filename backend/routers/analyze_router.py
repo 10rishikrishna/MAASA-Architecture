@@ -231,7 +231,7 @@ def export_analysis(
         return Response(
             content=json.dumps(data, indent=2),
             media_type="application/json",
-            headers={"Content-Disposition": f"attachment; filename=maasa-export-{analysis_id}.json"},
+            headers={"Content-Disposition": f"attachment; filename=mosaic-export-{analysis_id}.json"},
         )
 
     arch = analysis.architecture_design or {}
@@ -240,7 +240,7 @@ def export_analysis(
     api = analysis.api_specification or {}
     dep = analysis.deployment_config or {}
 
-    md = f"""# MAASA Architecture Design Report
+    md = f"""# Mosaic Studio - Architecture Design Report
 Generated for: {analysis.business_problem}
 Analysis ID: {analysis_id}
 Status: Completed in {analysis.analysis_time_seconds}s
@@ -271,7 +271,7 @@ Status: Completed in {analysis.analysis_time_seconds}s
     return Response(
         content=md,
         media_type="text/markdown",
-        headers={"Content-Disposition": f"attachment; filename=maasa-export-{analysis_id}.md"},
+        headers={"Content-Disposition": f"attachment; filename=mosaic-export-{analysis_id}.md"},
     )
 
 

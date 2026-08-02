@@ -27,8 +27,8 @@ describe('Layout', () => {
   });
 
   it('renders sidebar and outlet when authenticated', async () => {
-    localStorage.setItem('maasa_token', 'test-token');
-    localStorage.setItem('maasa_user', JSON.stringify(mockUser));
+    localStorage.setItem('mosaic_token', 'test-token');
+    localStorage.setItem('mosaic_user', JSON.stringify(mockUser));
     const { authApi } = await import('../api/client');
     (authApi.me as any).mockResolvedValue(mockUser);
 
@@ -37,9 +37,9 @@ describe('Layout', () => {
         <AuthProvider><Layout /></AuthProvider>
       </MemoryRouter>
     );
-    // Layout should render sidebar with MAASA branding
+    // Layout should render sidebar with Mosaic Studio branding
     await waitFor(() => {
-      expect(screen.getByText('MAASA')).toBeInTheDocument();
+      expect(screen.getByText('Mosaic Studio')).toBeInTheDocument();
     });
   });
 });

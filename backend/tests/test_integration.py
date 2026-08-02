@@ -158,7 +158,7 @@ class TestFullUserFlow:
         assert key.status_code == 201
         kid = key.json()["id"]
         full_key = key.json()["full_key"]
-        assert full_key.startswith("maasa_")
+        assert full_key.startswith("mosaic_")
 
         # List keys
         keys = client.get("/api/v1/api-keys", headers=auth_header(token))

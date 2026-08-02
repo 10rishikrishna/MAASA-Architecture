@@ -52,7 +52,7 @@ def create_api_key(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    raw_key = f"maasa_{secrets.token_urlsafe(32)}"
+    raw_key = f"mosaic_{secrets.token_urlsafe(32)}"
     key_hash = _hash_key(raw_key)
 
     api_key = ApiKey(

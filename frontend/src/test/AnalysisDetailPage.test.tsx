@@ -39,8 +39,8 @@ vi.mock('../api/client', () => ({
 import { analyzeApi } from '../api/client';
 
 function renderDetail(id = 'a1') {
-  localStorage.setItem('maasa_token', 'test-token');
-  localStorage.setItem('maasa_user', JSON.stringify(mockUser));
+  localStorage.setItem('mosaic_token', 'test-token');
+  localStorage.setItem('mosaic_user', JSON.stringify(mockUser));
   return render(
     <MemoryRouter initialEntries={[`/analyses/${id}`]}>
       <AuthProvider>

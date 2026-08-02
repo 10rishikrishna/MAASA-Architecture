@@ -41,11 +41,11 @@ export default function AuthPage() {
         <div className="auth-left-inner">
           <div className="auth-brand">
             <div className="auth-logo">M</div>
-            <span>MAASA</span>
+            <span>Mosaic Studio</span>
           </div>
           <h1 className="auth-tagline">
-            Architecture Intelligence,<br />
-            <span className="text-gradient">Automated by AI Agents</span>
+            Virtual Architecture Workspace,<br />
+            <span className="text-gradient">Powered by AI Agents</span>
           </h1>
           <p className="auth-sub">
             Describe any business problem and watch 8 specialized AI agents

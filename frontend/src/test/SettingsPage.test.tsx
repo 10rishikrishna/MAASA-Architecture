@@ -15,7 +15,7 @@ vi.mock('../api/client', () => ({
   apiKeysApi: {
     list: vi.fn().mockResolvedValue([]),
     create: vi.fn().mockResolvedValue({
-      id: 'k1', name: 'test-key', key_preview: 'maasa_123...', full_key: 'maasa_abc123',
+      id: 'k1', name: 'test-key', key_preview: 'mosaic_123...', full_key: 'mosaic_abc123',
       created_at: '2025-01-01', expires_at: null, last_used_at: null,
     }),
     revoke: vi.fn(),
@@ -25,8 +25,8 @@ vi.mock('../api/client', () => ({
 import { authApi } from '../api/client';
 
 function renderSettings() {
-  localStorage.setItem('maasa_token', 'test-token');
-  localStorage.setItem('maasa_user', JSON.stringify(mockUser));
+  localStorage.setItem('mosaic_token', 'test-token');
+  localStorage.setItem('mosaic_user', JSON.stringify(mockUser));
   return render(
     <MemoryRouter initialEntries={['/settings']}>
       <AuthProvider><SettingsPage /></AuthProvider>

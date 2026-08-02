@@ -1,7 +1,7 @@
 // src/pages/AnalysisDetailPage.tsx
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Download, CheckCircle, XCircle, Clock, Zap, FileText, Database, Server, Shield, GitBranch, Zap as ZapIcon, Trash2, Share2, MessageSquare, BookOpen, Film, HelpCircle, Info, Sparkles } from 'lucide-react';
+import { ArrowLeft, Copy, Download, CheckCircle, XCircle, Clock, Zap, FileText, Database, Server, Shield, GitBranch, Trash2, Share2, MessageSquare, BookOpen, Film, HelpCircle, Info } from 'lucide-react';
 import { analyzeApi, type AnalysisDetail, chatApi, type ChatMessage } from '../api/client';
 import { MermaidDiagram } from '../components/MermaidDiagram';
 import './AnalysisDetailPage.css';
@@ -14,7 +14,7 @@ const TABS = [
   { id: 'api', label: 'API Spec', icon: Server },
   { id: 'deployment', label: 'Deployment', icon: Shield },
   { id: 'security', label: 'Security', icon: Shield },
-  { id: 'performance', label: 'Performance', icon: ZapIcon },
+  { id: 'performance', label: 'Performance', icon: Zap },
   { id: 'diagrams', label: 'Diagrams', icon: GitBranch },
   { id: 'chat', label: 'Chat with Sulaiman AI 👳🏽‍♂️', icon: MessageSquare },
 ];
@@ -61,7 +61,7 @@ function ChatPanel({ analysisId }: { analysisId: string }) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
-    chatApi.history(analysisId).then(data => setMessages(data.messages)).catch(() => {});
+    chatApi.history(analysisId).then(data => setMessages(data.messages)).catch(() => { });
   }, [analysisId]);
 
   async function handleSend(content: string) {
@@ -91,7 +91,7 @@ function ChatPanel({ analysisId }: { analysisId: string }) {
       await chatApi.clear(analysisId);
       setMessages([]);
       setSuggestions([]);
-    } catch {}
+    } catch { }
   }
 
   return (
@@ -201,7 +201,7 @@ export default function AnalysisDetailPage() {
     if (!id) return;
     try {
       const url = analyzeApi.exportUrl(id, format);
-      const token = localStorage.getItem('maasa_token');
+      const token = localStorage.getItem('mosaic_token');
       const res = await fetch(url, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
@@ -210,7 +210,7 @@ export default function AnalysisDetailPage() {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `maasa-export-${id}.${format === 'markdown' ? 'md' : 'json'}`;
+      a.download = `mosaic-export-${id}.${format === 'markdown' ? 'md' : 'json'}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -265,7 +265,7 @@ export default function AnalysisDetailPage() {
   }
 
   const isProcessing = analysis.status === 'processing';
-  const archDesign = analysis.architecture_design || {};
+  const archDesign = analysis.architecture_design ?? ({} as NonNullable<AnalysisDetail['architecture_design']>);
 
   return (
     <div className="detail-page">
@@ -497,7 +497,7 @@ export default function AnalysisDetailPage() {
               </SectionCard>
             )}
             {analysis.database_schema.indexing_strategies && (
-              <SectionCard title="Indexing Strategies" icon={ZapIcon}>
+              <SectionCard title="Indexing Strategies" icon={Zap}>
                 <ul className="req-list">
                   {analysis.database_schema.indexing_strategies.map((idx: string, i: number) => (
                     <li key={i}><span className="req-bullet" />{idx}</li>
@@ -577,7 +577,7 @@ export default function AnalysisDetailPage() {
 
         {activeTab === 'performance' && analysis.performance_strategies && (
           <div className="tab-content">
-            <SectionCard title="Caching Strategy" icon={ZapIcon}>
+            <SectionCard title="Caching Strategy" icon={Zap}>
               <p>{analysis.performance_strategies.caching}</p>
             </SectionCard>
             <SectionCard title="Optimization" icon={Shield}>
