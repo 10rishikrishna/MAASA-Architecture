@@ -1,157 +1,162 @@
-# Mosaic Studio - Virtual Architecture Workspace
+# Mosaic Studio
 
-AI-powered platform that generates comprehensive system architecture blueprints from a business problem description. Eight specialized AI agents collaborate to produce requirements, database schemas, API specs, deployment configs, security audits, performance strategies, and diagrams.
+### AI-Powered Virtual Architecture Workspace
 
-## Tech Stack
+> Transform a business problem into a comprehensive, production-oriented system architecture blueprint using a collaborative multi-agent AI platform.
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 19 + TypeScript + Vite |
-| **Backend** | Python FastAPI + SQLAlchemy + SQLite |
-| **Auth** | JWT (python-jose + bcrypt) + Refresh Tokens |
-| **LLM** | OpenAI GPT-4 (optional, falls back to rich mock data) |
-| **Cache/Queue** | Redis + Celery |
-| **Observability** | Prometheus + Grafana + Jaeger + ELK |
-| **Load Balancer** | Nginx with upstream + rate limiting |
-| **Fault Tolerance** | Circuit Breaker + Retry + Bulkhead |
+Mosaic Studio is an AI-powered system architecture workspace that helps developers, architects, students, and engineering teams transform a business problem into a detailed technical architecture.
 
-## Getting Started
+Instead of manually designing every part of a system from scratch, Mosaic Studio uses **eight specialized AI agents** to collaboratively analyze a problem and generate requirements, architecture decisions, database schemas, API specifications, deployment strategies, security recommendations, performance strategies, and system diagrams.
 
-### Prerequisites
+---
 
-- Python 3.10+
-- Node.js 18+
-- Docker & Docker Compose (recommended)
+## Table of Contents
 
-### Quick Start with Docker
+- [Overview](#overview)
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Key Features](#key-features)
+- [How It Works](#how-it-works)
+- [System Architecture](#system-architecture)
+- [AI Agent Architecture](#ai-agent-architecture)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Docker Setup](#docker-setup)
+- [Manual Setup](#manual-setup)
+- [Environment Variables](#environment-variables)
+- [API Documentation](#api-documentation)
+- [Authentication](#authentication)
+- [Background Processing](#background-processing)
+- [Fault Tolerance](#fault-tolerance)
+- [Observability](#observability)
+- [Generated Architecture Output](#generated-architecture-output)
+- [Example Workflow](#example-workflow)
+- [Security](#security)
+- [Development](#development)
+- [Future Improvements](#future-improvements)
+- [License](#license)
 
-```bash
-docker-compose up --build
-```
+---
 
-This starts all services:
-- Frontend: http://localhost:80
-- Backend API: http://localhost:8000
-- Load Balancer: http://localhost:8080
-- Grafana: http://localhost:3001
-- Jaeger UI: http://localhost:16686
-- Kibana: http://localhost:5601
-- Prometheus: http://localhost:9090
+# Overview
 
-### Manual Setup
+Designing a production-ready software architecture requires more than choosing a programming language and database.
 
-#### Backend Setup
+A complete architecture needs to consider:
 
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -r requirements.txt
+- Business requirements
+- Functional and non-functional requirements
+- Service boundaries
+- Data models
+- API contracts
+- Authentication and authorization
+- Scalability
+- Performance
+- Fault tolerance
+- Security
+- Deployment
+- Monitoring
+- Logging
+- Distributed tracing
+- Infrastructure
 
-cp ../.env.example ../.env
-uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
-```
+Mosaic Studio brings these concerns together into a single **virtual architecture workspace**.
 
-#### Frontend Setup
+A user provides a business problem such as:
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+> "Design a highly scalable e-commerce platform capable of handling millions of users, secure payments, product search, inventory management, and real-time order tracking."
 
-### Environment Variables
+Mosaic Studio analyzes the problem and produces a complete architecture blueprint.
 
-See `.env.example` for all configuration options:
+---
 
-- `JWT_SECRET` - Secret key for JWT tokens (required for production)
-- `DATABASE_URL` - Database connection string (default: SQLite)
-- `OPENAI_API_KEY` - OpenAI API key (optional, enables real LLM analysis)
-- `REDIS_URL` - Redis connection for cache and message queue
-- `CELERY_BROKER_URL` - Celery broker for background tasks
-- `JAEGER_ENDPOINT` - Jaeger tracing endpoint
-- `PROMETHEUS_PORT` - Prometheus metrics port
-- `ELASTICSEARCH_URL` - Elasticsearch for log aggregation
+# The Problem
 
-## Features
+System architecture design is often fragmented across multiple tools and documents.
 
-- **Multi-Agent Analysis** - 8 specialized AI agents collaborate on architecture design
-- **Real-time Streaming** - Watch agents work via SSE progress events
-- **Rich Report** - Requirements, architecture, DB schemas, API specs, deployment, security, performance, diagrams
-- **3-Tier Explanations** - Brief, Long, and Detailed explanation modes for all features
-- **Mermaid Diagrams** - Auto-generated architecture diagrams
-- **Context-Aware Chat** - AI-powered chatbot with architecture context
-- **Export** - Download reports as Markdown or JSON
-- **Projects** - Organize analyses into projects
-- **Teams** - Collaborate with team members
-- **API Keys** - Generate and manage API keys
-- **Observability** - Prometheus metrics, Grafana dashboards, Jaeger tracing, ELK logs
-- **Load Balancing** - Nginx upstream with health checks and rate limiting
-- **Fault Tolerance** - Circuit breaker, retry with backoff, bulkhead patterns
-- **Message Queue** - Redis + Celery for async background processing
-- **Refresh Tokens** - Secure token rotation with revocation support
+An engineering team may need separate tools for:
 
-## Architecture
+- Requirements analysis
+- Architecture diagrams
+- Database design
+- API documentation
+- Security analysis
+- Performance planning
+- Deployment configuration
+- Monitoring strategy
 
-```
-User -> CDN/WAF -> Load Balancer (Nginx) -> Backend (FastAPI) -> Database
-                                         -> Redis Cache/Queue
-                                         -> Celery Worker
+This makes architecture design time-consuming and increases the possibility of missing important system requirements.
 
-Observability Pipeline:
-App -> OpenTelemetry -> Jaeger (Traces)
-App -> Prometheus -> Grafana (Metrics)
-App -> Structured Logs -> Elasticsearch -> Kibana (Logs)
-```
+### The core problem
 
-## Project Structure
+> **How can a business requirement be automatically transformed into a comprehensive, scalable, secure, and production-oriented system architecture?**
 
-```
-.
-├── backend/
-│   ├── main.py              # FastAPI app entry point
-│   ├── config.py            # Settings (Pydantic)
-│   ├── database.py          # SQLAlchemy models (12 tables)
-│   ├── auth.py              # JWT + password hashing + refresh tokens
-│   ├── fault_tolerance.py   # Circuit breaker, retry, bulkhead
-│   ├── celery_app.py        # Background task processing
-│   ├── agents/
-│   │   ├── engine.py        # Agent orchestrator
-│   │   ├── mock_data.py     # Rich mock data generator
-│   │   └── prompt_templates.py  # LLM prompt templates
-│   └── routers/
-│       ├── auth_router.py   # Auth + refresh tokens
-│       ├── analyze_router.py # Analysis CRUD + streaming
-│       ├── projects_router.py # Project management
-│       ├── chat_router.py   # Context-aware chat
-│       ├── teams_router.py  # Team management
-│       ├── shares_router.py # Project sharing
-│       ├── apikeys_router.py # API key management
-│       └── audit_router.py  # Audit logs
-├── frontend/
-│   └── src/
-│       ├── api/client.ts    # API client + types
-│       ├── context/         # Auth context with refresh
-│       ├── components/      # Layout, Sidebar, MermaidDiagram
-│       └── pages/           # All page components
-├── monitoring/
-│   ├── prometheus.yml       # Prometheus config
-│   ├── alert_rules.yml      # Alert rules
-│   └── grafana/             # Grafana dashboards + datasources
-├── nginx-lb.conf            # Load balancer config
-├── docker-compose.yml       # Full stack orchestration
-└── .env.example
-```
+---
 
-## API Documentation
+# The Solution
 
-Once the backend is running, visit:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+Mosaic Studio uses a **multi-agent AI architecture**.
 
-## Observability
+Instead of relying on a single AI response, the platform divides architecture design into specialized responsibilities.
 
-- **Metrics**: http://localhost:9090 (Prometheus)
-- **Dashboards**: http://localhost:3001 (Grafana)
-- **Tracing**: http://localhost:16686 (Jaeger)
-- **Logs**: http://localhost:5601 (Kibana)
+Eight AI agents independently analyze different aspects of the system and their outputs are combined into a unified architecture report.
+
+### Generated outputs include
+
+- Business and technical requirements
+- Functional requirements
+- Non-functional requirements
+- High-level architecture
+- Service decomposition
+- Database schemas
+- API specifications
+- Deployment architecture
+- Security analysis
+- Performance strategies
+- Fault-tolerance strategies
+- Architecture diagrams
+
+---
+
+# Key Features
+
+## Multi-Agent Architecture Analysis
+
+Eight specialized AI agents collaborate to analyze different aspects of a business problem.
+
+The architecture engine can use:
+
+- OpenAI GPT-based analysis
+- Rich mock data when an LLM API key is unavailable
+
+This allows the application to remain usable during development without requiring an external AI API.
+
+---
+
+## Real-Time Analysis Streaming
+
+Users can watch the architecture generation process in real time.
+
+The backend uses **Server-Sent Events (SSE)** to stream agent progress to the frontend.
+
+```text
+User
+  │
+  ▼
+Analysis Request
+  │
+  ▼
+Agent Orchestrator
+  │
+  ├── Requirements Agent
+  ├── Architecture Agent
+  ├── Database Agent
+  ├── API Agent
+  ├── Deployment Agent
+  ├── Security Agent
+  ├── Performance Agent
+  └── Diagram Agent
+  │
+  ▼
+Unified Architecture Report
