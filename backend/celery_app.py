@@ -77,13 +77,13 @@ def process_analysis_async(self, analysis_id: str, business_problem: str, tier: 
 @celery_app.task
 def cleanup_expired_tokens():
     """Remove expired refresh tokens from database."""
-    from datetime import datetime
+    from datetime import datetime, timezone
     from backend.database import SessionLocal, RefreshToken
 
     db = SessionLocal()
     try:
         deleted = db.query(RefreshToken).filter(
-            RefreshToken.expires_at < datetime.utcnow()
+            RefreshToken.expires_at < datetime.now(timezone.utc)
         ).delete()
         db.commit()
         print(f"Cleaned up {deleted} expired refresh tokens")
@@ -94,13 +94,13 @@ def cleanup_expired_tokens():
 @celery_app.task
 def cleanup_expired_sessions():
     """Remove expired user sessions from database."""
-    from datetime import datetime
+    from datetime import datetime, timezone
     from backend.database import SessionLocal, UserSession
 
     db = SessionLocal()
     try:
         deleted = db.query(UserSession).filter(
-            UserSession.expires_at < datetime.utcnow()
+            UserSession.expires_at < datetime.now(timezone.utc)
         ).delete()
         db.commit()
         print(f"Cleaned up {deleted} expired sessions")
@@ -111,12 +111,13 @@ def cleanup_expired_sessions():
 @celery_app.task
 def generate_usage_report():
     """Generate weekly usage statistics report."""
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from backend.database import SessionLocal, Analysis, User
 
     db = SessionLocal()
     try:
-        week_ago = datetime.utcnow() - timedelta(days=7)
+        now = datetime.now(timezone.utc)
+        week_ago = now - timedelta(days=7)
         total_analyses = db.query(Analysis).filter(
             Analysis.created_at >= week_ago
         ).count()
@@ -127,7 +128,7 @@ def generate_usage_report():
         total_users = db.query(User).count()
 
         report = {
-            "period": f"{week_ago.date()} to {datetime.utcnow().date()}",
+            "period": f"{week_ago.date()} to {now.date()}",
             "total_analyses": total_analyses,
             "completed_analyses": completed,
             "success_rate": f"{(completed/total_analyses*100) if total_analyses > 0 else 0:.1f}%",

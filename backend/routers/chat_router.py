@@ -5,7 +5,7 @@ Provides intelligent, analysis-contextual responses with 3 explanation tiers.
 """
 import re
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -418,7 +418,7 @@ def send_chat_message(
     user_msg = {
         "role": "user",
         "content": payload.content,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     ans_content, suggestions = generate_contextual_response(
@@ -428,7 +428,7 @@ def send_chat_message(
     bot_msg = {
         "role": "assistant",
         "content": ans_content,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "explanation_level": payload.explanation_level or "brief",
     }
 

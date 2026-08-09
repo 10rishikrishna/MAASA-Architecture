@@ -1,5 +1,5 @@
 import pytest
-from tests.conftest import auth_header
+from tests.helpers import auth_header
 
 
 class TestFullUserFlow:

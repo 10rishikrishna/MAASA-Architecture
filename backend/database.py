@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, String, Text, DateTime, Float, ForeignKey, JSON, Index, Boolean, Integer
 from sqlalchemy.orm import sessionmaker, relationship, DeclarativeBase
 from backend.config import settings
@@ -33,6 +33,10 @@ def generate_uuid():
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
+def _utcnow():
+    return datetime.now(timezone.utc)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -46,8 +50,8 @@ class User(Base):
     last_login_at = Column(DateTime, nullable=True)
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
     analyses = relationship("Analysis", back_populates="user")
@@ -73,7 +77,7 @@ class RefreshToken(Base):
     ip_address = Column(String(45), nullable=True)
     expires_at = Column(DateTime, nullable=False)
     revoked_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="refresh_tokens")
 
@@ -92,8 +96,8 @@ class UserSession(Base):
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)
     expires_at = Column(DateTime, nullable=False)
-    last_activity_at = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    last_activity_at = Column(DateTime, default=_utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="sessions")
 
@@ -120,8 +124,8 @@ class Analysis(Base):
 
     status = Column(String(50), default="processing")
     analysis_time_seconds = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow, index=True)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     user = relationship("User", back_populates="analyses")
     chat_histories = relationship("ChatHistory", back_populates="analysis")
@@ -143,8 +147,8 @@ class Project(Base):
     analysis_ids = Column(JSON, default=list)
     tags = Column(JSON, default=list)
     visibility = Column(String(50), default="private")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     user = relationship("User", back_populates="projects")
     team = relationship("Team", back_populates="projects")
@@ -162,8 +166,8 @@ class ChatHistory(Base):
     analysis_id = Column(String(36), ForeignKey("analyses.id"), nullable=False, index=True)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False)
     messages = Column(JSON, nullable=False, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     analysis = relationship("Analysis", back_populates="chat_histories")
 
@@ -179,8 +183,8 @@ class Team(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     owner_id = Column(String(36), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     owner = relationship("User", back_populates="teams_owned")
     members = relationship("TeamMember", back_populates="team")
@@ -194,7 +198,7 @@ class TeamMember(Base):
     team_id = Column(String(36), ForeignKey("teams.id"), nullable=False, index=True)
     user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     role = Column(String(50), default="member")
-    joined_at = Column(DateTime, default=datetime.utcnow)
+    joined_at = Column(DateTime, default=_utcnow)
 
     team = relationship("Team", back_populates="members")
     user = relationship("User", back_populates="team_memberships")
@@ -212,7 +216,7 @@ class ProjectShare(Base):
     shared_with_user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
     shared_with_team_id = Column(String(36), ForeignKey("teams.id"), nullable=True)
     permission = Column(String(50), default="view")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     project = relationship("Project", back_populates="shares")
 
@@ -229,7 +233,7 @@ class ApiKey(Base):
     key_hash = Column(String(255), unique=True, nullable=False)
     name = Column(String(255), nullable=True)
     last_used_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
     expires_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="api_keys")
@@ -250,7 +254,7 @@ class AuditLog(Base):
     details = Column(JSON, nullable=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=_utcnow, index=True)
 
     __table_args__ = (
         Index("idx_audit_user_action", "user_id", "action"),
@@ -265,7 +269,7 @@ class RateLimit(Base):
     identifier = Column(String(255), nullable=False, index=True)
     endpoint = Column(String(255), nullable=False)
     request_count = Column(Integer, default=1)
-    window_start = Column(DateTime, default=datetime.utcnow)
+    window_start = Column(DateTime, default=_utcnow)
     blocked_until = Column(DateTime, nullable=True)
 
     __table_args__ = (

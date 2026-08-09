@@ -1,8 +1,11 @@
 import os
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(case_sensitive=True)
+
     PROJECT_NAME: str = "Mosaic Studio - Virtual Architecture Workspace"
     API_V1_STR: str = "/api/v1"
 
@@ -35,8 +38,5 @@ class Settings(BaseSettings):
     # Circuit Breaker
     CIRCUIT_BREAKER_THRESHOLD: int = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "5"))
     CIRCUIT_BREAKER_TIMEOUT: int = int(os.getenv("CIRCUIT_BREAKER_TIMEOUT", "30"))
-
-    class Config:
-        case_sensitive = True
 
 settings = Settings()

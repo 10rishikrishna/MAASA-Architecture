@@ -1,5 +1,5 @@
 # backend/routers/auth_router.py
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
 from pydantic import BaseModel, EmailStr
@@ -89,7 +89,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         id=generate_uuid(),
         user_id=new_user.id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     )
     db.add(rt)
     db.commit()
@@ -134,7 +134,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         id=generate_uuid(),
         user_id=user.id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     )
     db.add(rt)
     db.commit()
@@ -159,7 +159,7 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         RefreshToken.revoked_at == None,
     ).first()
 
-    if not stored or stored.expires_at < datetime.utcnow():
+    if not stored or stored.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token.",
@@ -173,7 +173,7 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         )
 
     # Revoke old refresh token
-    stored.revoked_at = datetime.utcnow()
+    stored.revoked_at = datetime.now(timezone.utc)
 
     # Issue new tokens
     access_token = create_access_token(
@@ -189,7 +189,7 @@ def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
         id=generate_uuid(),
         user_id=user.id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     )
     db.add(rt)
     db.commit()
@@ -217,7 +217,7 @@ def logout(
         RefreshToken.user_id == current_user.id,
     ).first()
     if stored:
-        stored.revoked_at = datetime.utcnow()
+        stored.revoked_at = datetime.now(timezone.utc)
         db.commit()
     return {"success": True, "message": "Logged out successfully."}
 
@@ -284,7 +284,7 @@ def change_password(
     db.query(RefreshToken).filter(
         RefreshToken.user_id == current_user.id,
         RefreshToken.revoked_at == None,
-    ).update({"revoked_at": datetime.utcnow()})
+    ).update({"revoked_at": datetime.now(timezone.utc)})
 
     db.commit()
     return {"success": True, "message": "Password changed successfully. All sessions have been invalidated."}

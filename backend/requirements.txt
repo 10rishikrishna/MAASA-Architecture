@@ -31,5 +31,4 @@ circuitbreaker>=2.0.0
 # Rate Limiting
 slowapi>=0.1.9
 
-# Security
-python-jose[cryptography]>=3.3.0
+# Security (python-jose already listed above under JWT)

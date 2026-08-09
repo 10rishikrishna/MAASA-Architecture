@@ -1,20 +1,20 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_mosaic_studio.db"
+os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["JWT_SECRET"] = "test-secret-key-for-testing"
 
 from backend.database import Base, get_db
 from backend.main import app
-from backend.auth import get_password_hash, create_access_token
-from backend.database import User, generate_uuid
 
-# Use a separate in-memory-like file DB for tests
-TEST_DB_URL = "sqlite:///./test_mosaic_studio.db"
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+test_engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 TestSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
@@ -38,7 +38,7 @@ def setup_db():
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -71,7 +71,3 @@ def second_user(client):
         "email": "other@example.com",
         "name": "Other User",
     }
-
-
-def auth_header(token: str):
-    return {"Authorization": f"Bearer {token}"}

@@ -157,7 +157,7 @@ async def run_agent_orchestrator(
         analysis_data["status"] = "completed"
         analysis_data["analysis_time_seconds"] = elapsed
         
-        # Save to database
+        # Save to database - create fresh session for thread safety
         db = db_session_factory()
         try:
             from backend.database import Analysis
@@ -177,7 +177,7 @@ async def run_agent_orchestrator(
         except Exception as db_err:
             db.rollback()
             print(f"Error saving analysis output to DB: {db_err}")
-            raise db_err
+            raise
         finally:
             db.close()
             
