@@ -122,6 +122,8 @@ class Analysis(Base):
     performance_strategies = Column(JSON, nullable=True)
     diagrams = Column(JSON, nullable=True)
 
+    architecture_model = Column(JSON, nullable=True)
+
     status = Column(String(50), default="processing")
     analysis_time_seconds = Column(Float, nullable=True)
     created_at = Column(DateTime, default=_utcnow, index=True)
@@ -280,3 +282,22 @@ class RateLimit(Base):
 # Helper to initialize DB
 def init_db():
     Base.metadata.create_all(bind=engine)
+    _migrate_existing_tables()
+
+
+def _migrate_existing_tables():
+    """Additive migrations for tables created before later columns existed."""
+    if not settings.DATABASE_URL.startswith("sqlite"):
+        return
+    import sqlite3
+    try:
+        conn = sqlite3.connect(settings.DATABASE_URL.replace("sqlite:///", "", 1))
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(analyses)")
+        cols = {row[1] for row in cur.fetchall()}
+        if "architecture_model" not in cols:
+            cur.execute("ALTER TABLE analyses ADD COLUMN architecture_model TEXT")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[WARN] Schema migration skipped: {e}")

@@ -76,15 +76,122 @@ export interface AnalysisSummary {
   id: string; business_problem: string; status: string;
   analysis_time_seconds: number | null; created_at: string;
 }
+
+// ── Canonical architecture model ──────────────────────────
+
+export interface Workload {
+  avg_requests_per_second?: number | null;
+  peak_requests_per_second?: number | null;
+  expected_concurrency?: number | null;
+  users?: number | null;
+  read_write_ratio?: string;
+  assumptions?: Array<{ label?: string; text?: string } | string>;
+  calculated_from?: string;
+  complexity_score?: number;
+}
+
+export interface ArchitectureComponent {
+  id?: string;
+  name: string;
+  type: string;
+  technology?: string;
+  responsibility?: string;
+  internal_or_external?: string;
+  dependencies?: string[];
+  scaling_strategy?: string;
+  failure_behavior?: string;
+  security_considerations?: string;
+  alternatives?: string[];
+  reason?: string;
+}
+
+export interface Decision {
+  decision?: string; reason?: string; alternatives?: string[];
+  rejected_alternatives?: string[]; rejected_reason?: string; tradeoff?: string; confidence?: number;
+}
+
+export interface Ambiguity {
+  question?: string; suggested_assumption?: string; confidence?: string; impact?: string;
+}
+
+export interface DiagramLevel {
+  title?: string; description?: string; mermaid?: string; ascii?: string;
+  node_map?: Record<string, string>;
+}
+
+export interface ArchitectureAlternative {
+  key: string;
+  name: string;
+  recommended: boolean;
+  description: string;
+  flow: string[];
+  components: Array<{ name: string; type: string; technology: string; responsibility: string }>;
+  pros: string[];
+  cons: string[];
+  when_to_use: string;
+}
+
+export interface ArchitectureModel {
+  version?: number;
+  business_problem?: string;
+  domain?: string;
+  architecture_tier?: string;
+  status?: string;
+  correction_iterations?: number;
+  overview?: string;
+  overview_explained?: Array<{ key: string; title: string; icon?: string; paragraphs: string[] }>;
+  requirements?: {
+    functional?: any[]; non_functional?: any[]; actors?: string[]; constraints?: any[];
+    assumptions?: any[]; ambiguities?: Ambiguity[]; business_rules?: any[];
+    dependencies?: any[]; scale_requirements?: Record<string, any>;
+    availability_requirement?: string; security_requirements?: any[];
+  };
+  architecture?: {
+    system_type?: string; style?: string; pattern?: string; justification?: string;
+    components?: ArchitectureComponent[]; relationships?: any[]; technologies?: any[];
+    decisions?: Decision[]; building_blocks?: string[];
+    explanation_modes?: {
+      story?: string; brief?: string; long?: string; detailed?: string;
+      terms?: any[]; analogies?: any[];
+    };
+    alternatives?: ArchitectureAlternative[];
+  };
+  database?: Record<string, any>;
+  api?: Record<string, any>;
+  deployment?: Record<string, any>;
+  security?: Record<string, any>;
+  performance?: { workload?: Workload; [k: string]: any };
+  failure_scenarios?: any[];
+  risks?: any[];
+  review?: {
+    overall_score?: number | null; categories?: Record<string, number>;
+    critical_issues?: string[]; warnings?: string[]; recommendations?: string[];
+    missing_information?: string[];
+  };
+  diagrams?: {
+    level1?: DiagramLevel; level2?: DiagramLevel; level3?: DiagramLevel; legacy?: { mermaid?: string; ascii?: string };
+  };
+  validation?: { issue_count?: number; issues?: Array<{ severity: string; category: string; message: string }> };
+  analysis_time_seconds?: number;
+}
+
+export interface ValidationSummary {
+  error_count: number; warning_count: number;
+  errors: Array<{ severity: string; category: string; message: string }>;
+  warnings: Array<{ severity: string; category: string; message: string }>;
+  passes: boolean;
+}
+
 export interface AnalysisDetail extends AnalysisSummary {
   requirements?:          { functional: string[]; non_functional: string[] };
-  architecture_design?:   { system_type: string; pattern: string; justification: string; components: any[]; story_mode?: string; eli5_terms?: { term: string; symbol: string; meaning: string; analogy: string }[]; explanations?: { brief: string; long: string; detailed: string } };
+  architecture_design?:   { system_type: string; pattern: string; justification: string; components: any[]; story_mode?: string; eli5_terms?: { term: string; symbol: string; meaning: string; analogy: string }[]; explanations?: { brief: string; long: string; detailed: string; overview_explained?: Array<{ key: string; title: string; icon?: string; paragraphs: string[] }> }; alternatives?: ArchitectureAlternative[] };
   database_schema?:       { database_type: string; justification: string; schemas: any[]; indexing_strategies: string[] };
   api_specification?:     { protocol: string; endpoints: any[] };
   deployment_config?:     { infrastructure_as_code: string; orchestration: string; terraform_sample: string; kubernetes_manifest: string };
   security_audit?:        { vulnerability_mitigations: string[]; compliance: string; scores?: { security: number; scalability: number; cost: number } };
   performance_strategies?:{ caching: string; optimization: string };
   diagrams?:              { mermaid: string; ascii: string };
+  architecture_model?:    ArchitectureModel;
 }
 
 export const analyzeApi = {
@@ -93,6 +200,7 @@ export const analyzeApi = {
   start:  (body: { business_problem: string; scale_estimates?: Record<string,string>; constraints?: string[] }) =>
     request<AnalysisSummary>('/analyze', { method: 'POST', body: JSON.stringify(body) }),
   delete: (id: string) => request<void>(`/analyze/${id}`, { method: 'DELETE' }),
+  validate: (id: string) => request<ValidationSummary>(`/analyze/${id}/validation`),
 
   exportUrl: (id: string, format: 'markdown' | 'json' = 'markdown') =>
     `${API_V1}/analyze/${id}/export?format=${format}`,
@@ -198,6 +306,7 @@ export const auditApi = {
 
 export interface ChatMessage {
   role: string; content: string; timestamp: string; explanation_level?: string;
+  modification_applied?: boolean; modified_sections?: string[];
 }
 
 export interface ChatResponse {
@@ -205,6 +314,8 @@ export interface ChatResponse {
   follow_up_suggestions: string[];
   conversation_length: number;
   explanation_level: string;
+  modification_applied?: boolean;
+  modified_sections?: string[];
 }
 
 export const chatApi = {

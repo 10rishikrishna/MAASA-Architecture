@@ -4,6 +4,7 @@ import mermaid from 'mermaid';
 
 mermaid.initialize({
   startOnLoad: false,
+  securityLevel: 'loose',
   theme: 'dark',
   themeVariables: {
     background: '#0a0a16',
@@ -26,24 +27,40 @@ mermaid.initialize({
 
 let diagramCount = 0;
 
-interface Props { chart?: string; diagram?: string; }
+interface Props {
+  chart?: string;
+  diagram?: string;
+  nodeMap?: Record<string, string>;
+  onNodeClick?: (nodeId: string, name: string) => void;
+}
 
-export function MermaidDiagram({ chart, diagram }: Props) {
+// Global handler invoked by `click N1 diagramNodeClick` in generated mermaid.
+function registerClickHandler(handler: Props['onNodeClick'], nodeMap: Props['nodeMap']) {
+  (window as any).diagramNodeClick = (nodeId: string) => {
+    if (handler) {
+      const name = (nodeMap && nodeMap[nodeId]) || nodeId;
+      handler(nodeId, name);
+    }
+  };
+}
+
+export function MermaidDiagram({ chart, diagram, nodeMap, onNodeClick }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    registerClickHandler(onNodeClick, nodeMap);
     if (!ref.current) return;
     const content = chart || diagram;
     if (!content) return;
     const id = `mermaid-diagram-${++diagramCount}`;
     setError(null);
+    ref.current.innerHTML = '';
 
     mermaid.render(id, content)
       .then(({ svg }) => {
         if (ref.current) {
           ref.current.innerHTML = svg;
-          // Apply contrast force to SVG text nodes inside rendered diagram
           const textElements = ref.current.querySelectorAll('svg text');
           textElements.forEach((el) => {
             (el as HTMLElement).style.fill = '#ffffff';
@@ -55,7 +72,7 @@ export function MermaidDiagram({ chart, diagram }: Props) {
         setError(`Diagram render error: ${e.message}`);
         if (ref.current) ref.current.innerHTML = '';
       });
-  }, [chart, diagram]);
+  }, [chart, diagram, nodeMap, onNodeClick]);
 
   if (error) return (
     <div className="code-block" style={{ color: 'var(--danger)', fontSize: '0.8rem' }}>{error}</div>
@@ -74,7 +91,8 @@ export function MermaidDiagram({ chart, diagram }: Props) {
         overflow: 'auto',
         display: 'flex',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        cursor: onNodeClick ? 'pointer' : 'default',
       }}
     />
   );

@@ -40,6 +40,7 @@ class AnalysisDetail(AnalysisSummary):
     security_audit: Optional[dict]
     performance_strategies: Optional[dict]
     diagrams: Optional[dict]
+    architecture_model: Optional[dict]
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -198,7 +199,37 @@ def get_analysis(
         security_audit=analysis.security_audit,
         performance_strategies=analysis.performance_strategies,
         diagrams=analysis.diagrams,
+        architecture_model=analysis.architecture_model,
     )
+
+
+@router.get("/{analysis_id}/validation")
+def validate_analysis(
+    analysis_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Run the cross-tab consistency checks against the stored canonical model.
+    Returns the raw issues plus an error/warning/pass summary.
+    """
+    from backend.agents.model import validate_model, summarize_validation
+
+    analysis = db.query(Analysis).filter(
+        Analysis.id == analysis_id,
+        Analysis.user_id == current_user.id,
+    ).first()
+
+    if not analysis:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found.")
+    if analysis.status != "completed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analysis not ready for validation")
+    if not analysis.architecture_model:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="Analysis predates the canonical model; re-run to validate.")
+
+    issues = validate_model(analysis.architecture_model)
+    return summarize_validation(issues)
 
 
 @router.get("/{analysis_id}/export")
@@ -220,6 +251,7 @@ def export_analysis(
     if format == "json":
         data = {
             "business_problem": analysis.business_problem,
+            "architecture_model": analysis.architecture_model,
             "requirements": analysis.requirements,
             "architecture_design": analysis.architecture_design,
             "database_schema": analysis.database_schema,
@@ -239,6 +271,7 @@ def export_analysis(
     db_schema = analysis.database_schema or {}
     api = analysis.api_specification or {}
     dep = analysis.deployment_config or {}
+    sec = analysis.security_audit or {}
 
     md = f"""# Mosaic Studio - Architecture Design Report
 Generated for: {analysis.business_problem}
@@ -267,6 +300,25 @@ Status: Completed in {analysis.analysis_time_seconds}s
         md += f"### `{ep.get('method')}` {ep.get('path')}\n*{ep.get('description')}*\n\n"
 
     md += f"## 5. Infrastructure & Deployment\n**IaC Tool:** {dep.get('infrastructure_as_code', 'N/A')}\n**Orchestrator:** {dep.get('orchestration', 'N/A')}\n\n### Terraform Template\n```hcl\n{dep.get('terraform_sample', '')}\n```\n\n### Kubernetes Manifest\n```yaml\n{dep.get('kubernetes_manifest', '')}\n```\n"
+
+    md += f"\n## 6. Security\n**Auth Strategy:** {sec.get('authentication_strategy', 'N/A')}\n**Compliance:** {sec.get('compliance', 'N/A')}\n\n### Mitigations\n"
+    for v in (analysis.security_audit or {}).get("vulnerability_mitigations", []):
+        if isinstance(v, dict):
+            md += f"- {v.get('vulnerability', '')}: {v.get('mitigation', '')}\n"
+        else:
+            md += f"- {v}\n"
+
+    review = (analysis.architecture_model or {}).get("review") or {}
+    if review:
+        md += f"\n## 7. Architecture Review\n**Overall Score:** {review.get('overall_score', 'N/A')}/100\n"
+        if review.get("critical_issues"):
+            md += "### Critical Issues\n"
+            for i in review.get("critical_issues", []):
+                md += f"- {i}\n"
+        if review.get("recommendations"):
+            md += "### Recommendations\n"
+            for r in review.get("recommendations", []):
+                md += f"- {r}\n"
 
     return Response(
         content=md,

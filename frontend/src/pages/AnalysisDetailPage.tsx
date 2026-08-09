@@ -1,8 +1,8 @@
 // src/pages/AnalysisDetailPage.tsx
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Download, CheckCircle, XCircle, Clock, Zap, FileText, Database, Server, Shield, GitBranch, Trash2, Share2, MessageSquare, BookOpen, Film, HelpCircle, Info } from 'lucide-react';
-import { analyzeApi, type AnalysisDetail, chatApi, type ChatMessage } from '../api/client';
+import { ArrowLeft, Copy, Download, CheckCircle, XCircle, Clock, Zap, FileText, Database, Server, Shield, GitBranch, Trash2, Share2, MessageSquare, BookOpen, Film, HelpCircle, Info, AlertTriangle } from 'lucide-react';
+import { analyzeApi, type AnalysisDetail, chatApi, type ChatMessage, type ValidationSummary, type ArchitectureComponent } from '../api/client';
 import { MermaidDiagram } from '../components/MermaidDiagram';
 import './AnalysisDetailPage.css';
 
@@ -54,6 +54,27 @@ function MermaidBlock({ diagram }: { diagram: string }) {
   return <MermaidDiagram diagram={diagram} />;
 }
 
+function renderMarkdown(text: string): string {
+  return (text || '')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|\n)- /g, '$1• ')
+    .replace(/`([^`]*)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br/>');
+}
+
+function reqText(r: any): string {
+  if (typeof r === 'string') return r;
+  if (r && typeof r === 'object') return r.description || r.requirement || r.id || JSON.stringify(r);
+  return String(r ?? '');
+}
+
+function reqBadge(r: any): string | null {
+  if (r && typeof r === 'object' && (r.priority || r.category)) {
+    return [r.priority, r.category].filter(Boolean).join(' · ');
+  }
+  return null;
+}
+
 function ChatPanel({ analysisId }: { analysisId: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -72,12 +93,17 @@ function ChatPanel({ analysisId }: { analysisId: string }) {
     setLoading(true);
 
     try {
-      // Simulate natural typing/thinking delay (~1.2s) for realistic interactive experience
       const [res] = await Promise.all([
         chatApi.send(analysisId, userMsg),
         new Promise(resolve => setTimeout(resolve, 1200))
       ]);
-      setMessages(prev => [...prev, { role: 'assistant', content: res.response, timestamp: new Date().toISOString() }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: res.response + (res.modification_applied ? `\n\n_✅ Applied: ${(res.modified_sections || []).join(', ')} updated._` : ''),
+        timestamp: new Date().toISOString(),
+        modification_applied: res.modification_applied,
+        modified_sections: res.modified_sections,
+      }]);
       setSuggestions(res.follow_up_suggestions);
     } catch (_err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Deyy, cheriya signal issue. Try typing again! 😄', timestamp: new Date().toISOString() }]);
@@ -160,17 +186,23 @@ export default function AnalysisDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [validation, setValidation] = useState<ValidationSummary | null>(null);
+  const [selectedNode, setSelectedNode] = useState<ArchitectureComponent | null>(null);
+  const [activeDiagramLevel, setActiveDiagramLevel] = useState<'level1' | 'level2' | 'level3'>('level2');
 
   // Explanation Controls State
-  const [explanationMode, setExplanationMode] = useState<'technical' | 'story' | 'analogy'>('technical');
-  const [explanationLevel, setExplanationLevel] = useState<'basic' | 'intermediate' | 'advanced'>('basic');
+  const [explanationMode, setExplanationMode] = useState<'technical' | 'story'>('technical');
 
+  const [explanationLevel, setExplanationLevel] = useState<'basic' | 'intermediate'>('basic');
   useEffect(() => {
     if (!id) return;
     async function fetchAnalysis() {
       try {
         const data = await analyzeApi.get(id!);
         setAnalysis(data);
+        if (data.architecture_model) {
+          analyzeApi.validate(id!).then(setValidation).catch(() => { });
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load analysis');
       } finally {
@@ -326,6 +358,20 @@ export default function AnalysisDetailPage() {
         ))}
       </div>
 
+      {/* Validation / cross-tab consistency banner */}
+      {!isProcessing && analysis.architecture_model && (
+        <div className={`validation-banner ${validation ? (validation.passes ? 'validation-ok' : 'validation-warn') : 'validation-loading'}`}>
+          <AlertTriangle size={16} />
+          <span>
+            {!validation
+              ? 'Running cross-tab consistency checks...'
+              : validation.passes
+                ? 'Cross-tab consistency checks passed — no contradictions between tabs.'
+                : `${validation.error_count} error(s) and ${validation.warning_count} warning(s) found. ${validation.errors.map(e => e.message).join(' ')}`}
+          </span>
+        </div>
+      )}
+
       {/* Explanation Controls Bar for Overview and Architecture tabs */}
       {(activeTab === 'overview' || activeTab === 'architecture' || activeTab === 'diagrams') && (
         <div className="explanation-controls-bar fade-in">
@@ -337,9 +383,6 @@ export default function AnalysisDetailPage() {
             <button className={`mode-btn ${explanationMode === 'story' ? 'active' : ''}`} onClick={() => setExplanationMode('story')}>
               🎭 Story Mode
             </button>
-            <button className={`mode-btn ${explanationMode === 'analogy' ? 'active' : ''}`} onClick={() => setExplanationMode('analogy')}>
-              💡 Analogy Mode
-            </button>
           </div>
 
           <div className="control-group">
@@ -349,9 +392,6 @@ export default function AnalysisDetailPage() {
             </button>
             <button className={`level-btn ${explanationLevel === 'intermediate' ? 'active' : ''}`} onClick={() => setExplanationLevel('intermediate')}>
               🟡 Intermediate
-            </button>
-            <button className={`level-btn ${explanationLevel === 'advanced' ? 'active' : ''}`} onClick={() => setExplanationLevel('advanced')}>
-              🔴 Advanced
             </button>
           </div>
         </div>
@@ -400,6 +440,36 @@ export default function AnalysisDetailPage() {
               </SectionCard>
             </div>
 
+            {analysis.architecture_model && (
+              <>
+                <div className="grid-2">
+                  <SectionCard title="Domain & Architecture" icon={GitBranch}>
+                    <div className="kv-grid">
+                      <KeyValueRow label="Domain" value={analysis.architecture_model.domain || '—'} />
+                      <KeyValueRow label="Pattern" value={analysis.architecture_model.architecture?.pattern || '—'} />
+                      <KeyValueRow label="System Type" value={analysis.architecture_model.architecture?.system_type || '—'} />
+                      <KeyValueRow label="Tier" value={analysis.architecture_model.architecture_tier || '—'} />
+                      <KeyValueRow label="Corrections" value={analysis.architecture_model.correction_iterations ?? 0} />
+                    </div>
+                  </SectionCard>
+                  <SectionCard title="Workload & Review" icon={Zap}>
+                    <div className="kv-grid">
+                      <KeyValueRow label="Avg Throughput" value={`${analysis.architecture_model.performance?.workload?.avg_requests_per_second ?? '—'} req/s`} />
+                      <KeyValueRow label="Peak Throughput" value={`${analysis.architecture_model.performance?.workload?.peak_requests_per_second ?? '—'} req/s`} />
+                      <KeyValueRow label="Concurrency" value={analysis.architecture_model.performance?.workload?.expected_concurrency ?? '—'} />
+                      <KeyValueRow label="Complexity" value={`${analysis.architecture_model.performance?.workload?.complexity_score ?? '—'}/100`} />
+                      <KeyValueRow label="Review Score" value={analysis.architecture_model.review?.overall_score != null ? `${analysis.architecture_model.review.overall_score}/100` : '—'} />
+                    </div>
+                  </SectionCard>
+                </div>
+                {analysis.architecture_model.overview && (
+                  <SectionCard title="Executive Overview" icon={BookOpen} className="full-width">
+                    <p className="problem-text">{analysis.architecture_model.overview}</p>
+                  </SectionCard>
+                )}
+              </>
+            )}
+
             {analysis.diagrams?.mermaid && (
               <SectionCard title="System Architecture Diagram" icon={GitBranch} className="full-width">
                 <MermaidBlock diagram={analysis.diagrams.mermaid} />
@@ -413,15 +483,27 @@ export default function AnalysisDetailPage() {
             <div className="grid-2">
               <SectionCard title="Functional Requirements" icon={CheckCircle}>
                 <ul className="req-list">
-                  {analysis.requirements.functional?.map((req: string, i: number) => (
-                    <li key={i}><span className="req-bullet" />{req}</li>
+                  {analysis.requirements.functional?.map((req: any, i: number) => (
+                    <li key={i}>
+                      <span className="req-bullet" />
+                      <div>
+                        {reqText(req)}
+                        {reqBadge(req) && <span className="badge badge-accent req-priority">{reqBadge(req)}</span>}
+                      </div>
+                    </li>
                   ))}
                 </ul>
               </SectionCard>
               <SectionCard title="Non-Functional Requirements" icon={Shield}>
                 <ul className="req-list">
-                  {analysis.requirements.non_functional?.map((req: string, i: number) => (
-                    <li key={i}><span className="req-bullet" />{req}</li>
+                  {analysis.requirements.non_functional?.map((req: any, i: number) => (
+                    <li key={i}>
+                      <span className="req-bullet" />
+                      <div>
+                        {reqText(req)}
+                        {reqBadge(req) && <span className="badge badge-accent req-priority">{reqBadge(req)}</span>}
+                      </div>
+                    </li>
                   ))}
                 </ul>
               </SectionCard>
@@ -463,6 +545,76 @@ export default function AnalysisDetailPage() {
               </div>
               <p className="mt-2 text-secondary">{analysis.architecture_design.justification}</p>
             </SectionCard>
+
+            {/* Alternative Architectures (2-Tier / 3-Tier / Current) */}
+            {(() => {
+              const alternatives =
+                analysis.architecture_model?.architecture?.alternatives ??
+                analysis.architecture_design?.alternatives ??
+                [];
+              if (!alternatives.length) return null;
+              return (
+                <SectionCard title="Alternative Architectures (2-Tier & 3-Tier comparison)" icon={GitBranch} className="full-width">
+                  <p className="text-sm text-secondary mb-3">
+                    The same business problem can be built in several shapes. Below are the current design and the two
+                    classic alternatives — 2-tier and 3-tier — each with the full request flow so you can compare them.
+                  </p>
+                  <div className="alternatives-list">
+                    {alternatives.map((alt: any, i: number) => (
+                      <div key={i} className={`alternative-card ${alt.recommended ? 'alternative-recommended' : ''}`}>
+                        <div className="alternative-header">
+                          <h4>{alt.name}</h4>
+                          {alt.recommended && <span className="badge badge-success">✓ Current & Recommended</span>}
+                        </div>
+                        <p className="alternative-desc">{alt.description}</p>
+
+                        {alt.components && (
+                          <div className="alternative-components">
+                            <strong>Components:</strong>
+                            <div className="alt-comp-grid">
+                              {alt.components.map((c: any, j: number) => (
+                                <div key={j} className="alt-comp">
+                                  <span className="alt-comp-name">{c.name}</span>
+                                  <span className="badge badge-accent">{c.technology}</span>
+                                  <span className="alt-comp-resp">{c.responsibility}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {alt.flow && (
+                          <div className="alternative-flow">
+                            <strong>Detailed request flow:</strong>
+                            <ol className="flow-list">
+                              {alt.flow.map((step: string, j: number) => (
+                                <li key={j}>{step}</li>
+                              ))}
+                            </ol>
+                          </div>
+                        )}
+
+                        <div className="alt-pros-cons">
+                          <div className="alt-pros">
+                            <strong>Pros</strong>
+                            <ul>{alt.pros?.map((p: string, j: number) => <li key={j}>{p}</li>)}</ul>
+                          </div>
+                          <div className="alt-cons">
+                            <strong>Cons</strong>
+                            <ul>{alt.cons?.map((c: string, j: number) => <li key={j}>{c}</li>)}</ul>
+                          </div>
+                        </div>
+
+                        {alt.when_to_use && (
+                          <p className="alt-when"><strong>When to use it:</strong> {alt.when_to_use}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+              );
+            })()}
+
             {analysis.architecture_design.components && (
               <SectionCard title="Components" icon={Server}>
                 <div className="components-grid">
@@ -586,17 +738,114 @@ export default function AnalysisDetailPage() {
           </div>
         )}
 
-        {activeTab === 'diagrams' && analysis.diagrams && (
+        {activeTab === 'diagrams' && (
           <div className="tab-content">
-            {analysis.diagrams.mermaid && (
-              <SectionCard title="Mermaid Diagram" icon={GitBranch} className="full-width">
-                <MermaidBlock diagram={analysis.diagrams.mermaid} />
-              </SectionCard>
-            )}
-            {analysis.diagrams.ascii && (
-              <SectionCard title="ASCII Diagram" icon={FileText} className="full-width">
-                <pre className="ascii-display">{analysis.diagrams.ascii}</pre>
-              </SectionCard>
+            {analysis.architecture_model?.diagrams ? (
+              <>
+                <div className="diagram-level-selector">
+                  {(['level1', 'level2', 'level3'] as const).map(level => {
+                    const meta = analysis.architecture_model!.diagrams![level];
+                    return (
+                      <button
+                        key={level}
+                        className={`level-btn ${activeDiagramLevel === level ? 'active' : ''}`}
+                        onClick={() => setActiveDiagramLevel(level)}
+                      >
+                        {meta?.title || level}
+                      </button>
+                    );
+                  })}
+                </div>
+                {(() => {
+                  const meta = analysis.architecture_model!.diagrams![activeDiagramLevel];
+                  const level = activeDiagramLevel.toUpperCase();
+                  return (
+                    <>
+                      {meta?.description && <p className="text-sm text-secondary diagram-desc">{meta.description}</p>}
+                      {meta?.mermaid ? (
+                        <SectionCard title={`Diagram — ${meta.title || level}`} icon={GitBranch} className="full-width">
+                          <MermaidDiagram
+                            chart={meta.mermaid}
+                            nodeMap={meta.node_map}
+                            onNodeClick={(nodeId, name) => {
+                              const comp = analysis.architecture_model!.architecture?.components?.find(
+                                c => c.name === name || c.id === nodeId
+                              );
+                              setSelectedNode(comp || {
+                                name, type: 'component', technology: '—', responsibility: 'See the architecture tab for details.',
+                              } as ArchitectureComponent);
+                            }}
+                          />
+                        </SectionCard>
+                      ) : (
+                        <SectionCard title={`Diagram — ${level}`} icon={GitBranch} className="full-width">
+                          <p className="text-secondary">No mermaid diagram for {level}.</p>
+                        </SectionCard>
+                      )}
+                      {meta?.ascii && (
+                        <SectionCard title={`ASCII Layout — ${level}`} icon={FileText} className="full-width">
+                          <pre className="ascii-display">{meta.ascii}</pre>
+                        </SectionCard>
+                      )}
+                    </>
+                  );
+                })()}
+                {selectedNode && (
+                  <SectionCard title="Selected Component" icon={Info} className="full-width fade-in">
+                    <div className="kv-grid">
+                      <KeyValueRow label="Name" value={selectedNode.name} />
+                      <KeyValueRow label="Type" value={selectedNode.type} />
+                      <KeyValueRow label="Technology" value={selectedNode.technology || '—'} />
+                      <KeyValueRow label="Scope" value={selectedNode.internal_or_external || '—'} />
+                      <KeyValueRow label="Responsibility" value={selectedNode.responsibility || '—'} />
+                      <KeyValueRow label="Scaling" value={selectedNode.scaling_strategy || '—'} />
+                      <KeyValueRow label="Failure behavior" value={selectedNode.failure_behavior || '—'} />
+                      <KeyValueRow label="Security" value={selectedNode.security_considerations || '—'} />
+                    </div>
+                  </SectionCard>
+                )}
+              </>
+            ) : (
+              <>
+            {/* Deep-Dive Overview: everything explained */}
+            {(() => {
+              const explained =
+                analysis.architecture_model?.overview_explained ??
+                analysis.architecture_design?.explanations?.overview_explained ??
+                [];
+              if (!explained.length) return null;
+              return (
+                <SectionCard title="Deep-Dive Overview: Everything Explained" icon={BookOpen} className="full-width fade-in">
+                  <p className="text-sm text-secondary mb-3">
+                    A guided walkthrough of every part of the design — pattern, scale, components, data, API,
+                    security, deployment, performance, review and risks — in plain language.
+                  </p>
+                  <div className="deep-overview">
+                    {explained.map((sec: any, i: number) => (
+                      <div key={i} className="deep-section">
+                        <h4>{sec.title}</h4>
+                        {sec.paragraphs.map((p: string, j: number) => (
+                          <p key={j} className="deep-para"
+                             dangerouslySetInnerHTML={{ __html: renderMarkdown(p) }} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+              );
+            })()}
+
+            {analysis.diagrams?.mermaid && (
+                  <SectionCard title="Mermaid Diagram" icon={GitBranch} className="full-width">
+                    <MermaidBlock diagram={analysis.diagrams.mermaid} />
+                  </SectionCard>
+                )}
+                {analysis.diagrams?.ascii && (
+                  <SectionCard title="ASCII Diagram" icon={FileText} className="full-width">
+                    <pre className="ascii-display">{analysis.diagrams.ascii}</pre>
+                  </SectionCard>
+                )}
+              </>
             )}
           </div>
         )}

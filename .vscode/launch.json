@@ -16,8 +16,10 @@
       "args": [
         "backend.main:app",
         "--reload",
-        "--host", "127.0.0.1",
-        "--port", "8000"
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
       ],
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe",

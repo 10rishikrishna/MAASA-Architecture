@@ -42,6 +42,15 @@ def client():
 
 
 @pytest.fixture
+def db_session():
+    db = TestSession()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@pytest.fixture
 def test_user(client):
     res = client.post("/api/v1/auth/register", json={
         "email": "test@example.com",
