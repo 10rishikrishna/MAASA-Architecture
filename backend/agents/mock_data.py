@@ -1944,18 +1944,256 @@ def build_explanation_modes(model: dict) -> dict:
     )
 
     terms = [
-        {"term": "API Gateway", "symbol": "(Shield)", "meaning": "The single front door every request passes through. It authenticates the caller, checks permissions, rate-limits traffic, and routes each request to the right service. Nothing else is reachable from the internet, so it is also the natural place to add monitoring, logging and throttling.", "analogy": "Airport security checkpoint: one queue, ID checked once, then you are guided to the correct gate."},
-        {"term": "Service / Component", "symbol": "(Box)", "meaning": "A self-contained piece of the business logic with one clear job (e.g. handling orders, sending notifications). It owns its data and exposes a small set of operations; other parts of the system talk to it, never reaching inside it.", "analogy": "A specialist department: accounting never redoes what shipping already did — it just hands work over."},
-        {"term": "Cache", "symbol": "(Cylinder)", "meaning": "A fast in-memory copy of data that is read often. The system checks the cache before the database; a hit returns instantly, a miss falls through to the database and then the answer is stored for next time. This cuts database load dramatically at peak.", "analogy": "A cheat-sheet on your desk instead of walking to the library every time someone asks the same question."},
-        {"term": "Database", "symbol": "((DB))", "meaning": "The durable system of record that holds every piece of committed data, survives restarts and failures, and guarantees consistency through transactions. Every service reads and writes its data here; backups protect it from loss.", "analogy": "A bank vault: the single, authoritative copy of the truth that everyone consults."},
-        {"term": "Queue", "symbol": "{}", "meaning": "A staging area for work that does not need to finish before the user gets a reply. The system publishes a task and a background worker consumes it when ready. This smooths out bursts of work and prevents slow side-effects (emails, exports, notifications) from blocking the main request.", "analogy": "A post-office sorting line: you drop the parcel, you don't wait for it to be delivered."},
-        {"term": "External Provider", "symbol": "(Cloud)", "meaning": "A third-party system the architecture calls — payments, identity, email, push notifications. Because you don't control it, calls are wrapped in timeouts, retries and circuit breakers so a slow provider can't stall your own system.", "analogy": "A courier company: you hand the parcel over, and you only wait a fixed amount of time before giving up."},
-        {"term": "Load Balancer", "symbol": "(<> —)", "meaning": "A distributor that spreads incoming requests across several copies of a service so no single server is overloaded, and so traffic can be rerouted away from a server that has just failed.", "analogy": "A restaurant host splitting diners between several waiters so nobody is stuck waiting."},
-        {"term": "Authentication vs Authorization", "symbol": "(ID card)", "meaning": "Authentication proves who you are (your username and password, or token). Authorization decides what you are allowed to do once we know who you are (view, edit, admin). Both must happen before the gateway lets a request through.", "analogy": "A passport proves your identity; a visa decides which countries you may actually enter."},
-        {"term": "Horizontal Scaling", "symbol": "(x2 boxes)", "meaning": "Running more copies of a service behind a load balancer to serve more traffic. It works because requests are independent — no single machine becomes a bottleneck. The database is the one part that cannot be trivially copied, which is why caching and read replicas matter.", "analogy": "Adding more checkout counters when the store gets busy instead of making one counter faster."},
-        {"term": "Circuit Breaker", "symbol": "(✂ line)", "meaning": "A safety switch that stops sending requests to a failing dependency after enough errors. It lets the dependency recover, and the system fails fast (or serves a cached fallback) instead of piling up timeouts.", "analogy": "A power breaker that cuts the circuit before a shorted wire starts a fire."},
-        {"term": "Read Replica", "symbol": "((DB) copy)", "meaning": "A live copy of the database that serves read-only traffic. Writes go to the primary; reads fan out to replicas. This increases read capacity with a tiny delay on the copies.", "analogy": "Photocopies of the master ledger for the front desk, while the original stays safe in the office."},
-        {"term": "Idempotency", "symbol": "(↻ repeat-safe)", "meaning": "Making an operation safe to repeat: if the same request arrives twice (a retry, a double-click), the system detects it and applies the change only once. Essential for payments and any action with real-world consequences.", "analogy": "Pressing the elevator button twice still gets you to the same floor, once."},
+        {
+            "term": "API Gateway",
+            "symbol": "(Shield)",
+            "meaning": (
+                "The API Gateway is the single front door through which every request from the outside world "
+                "must pass. When a user taps a button in the app, the request first arrives here before anything "
+                "else in the system sees it. The gateway performs several important jobs in order: it first "
+                "authenticates the caller, meaning it checks that the person or app is really who they claim to "
+                "be by verifying a token or password. Next it authorizes the request, which means it checks "
+                "whether this caller is allowed to perform the specific action they are asking for, such as "
+                "viewing data or making a purchase. It also applies rate limiting, which caps how many requests "
+                "any single caller can make in a given time, so that one noisy user cannot overwhelm the system "
+                "and starve everyone else. After all checks pass, the gateway routes the request to the correct "
+                "service inside the architecture, acting like a switchboard operator who knows exactly which "
+                "department handles each type of work. Because everything flows through this one point, it is "
+                "also the natural place to record logs, measure response times, and detect unusual traffic "
+                "patterns early. Nothing else in the system is exposed directly to the internet, which keeps "
+                "the attack surface small and makes monitoring simpler."
+            ),
+            "analogy": "Think of an airport. Everyone must go through one security checkpoint where your ID is checked once, your boarding pass is verified, and then you are guided to the correct gate for your flight.",
+        },
+        {
+            "term": "Service / Component",
+            "symbol": "(Box)",
+            "meaning": (
+                "A service (also called a component) is a self-contained piece of the system that is responsible "
+                "for one clear job, such as handling customer orders, sending notifications, or processing "
+                "payments. It owns its own data and exposes only a small, well-defined set of operations that "
+                "other parts of the system can call; nobody reaches inside it to touch its internal details. "
+                "This separation matters because it gives each job a single home, which makes the code easier to "
+                "understand, test, and change without accidentally breaking something else. When one service "
+                "needs information from another, it sends a message asking for it rather than reaching directly "
+                "into that service's database, much like departments in a company communicate through formal "
+                "requests instead of rummaging through each other's filing cabinets. Each service can also be "
+                "deployed and scaled on its own: if the notification service becomes a bottleneck, you can run "
+                "more copies of just that service without touching anything else. The tradeoff is that more "
+                "services mean more moving parts to coordinate, so the number of services is chosen carefully "
+                "to match the actual size and complexity of the business, never more than needed."
+            ),
+            "analogy": "Think of a company with specialist departments. Accounting does not redo the work of shipping; it simply hands the work over to the right team, and each team owns its own process.",
+        },
+        {
+            "term": "Cache",
+            "symbol": "(Cylinder)",
+            "meaning": (
+                "A cache is a fast, temporary storage area that keeps copies of data that is read very often, "
+                "so that the system can answer repeated questions instantly instead of doing the slow work every "
+                "time. When a request comes in, the system first checks the cache: if the data is already there, "
+                "this is called a cache hit and the answer is returned immediately, often in under a millisecond. "
+                "If the data is not there, this is called a cache miss, and the system falls through to the real "
+                "source, which is usually the database, retrieves the answer, and then stores a copy in the "
+                "cache so the next identical request can be served from memory. This dramatically reduces the "
+                "load on the database, which is the most expensive and hardest part to scale. Cached data is "
+                "given a time to live, or TTL, so that stale information is eventually refreshed, and if the "
+                "cache ever loses its data entirely, the system still works correctly because it simply falls "
+                "back to the database; a cache failure means a slower response, never a wrong answer. Popular "
+                "implementations include Redis and Memcached, which keep data in RAM for near-instant access."
+            ),
+            "analogy": "Think of a cheat-sheet kept on your desk. Instead of walking to the library every time someone asks the same question, you glance at the sheet and answer instantly — and if the sheet is missing, you simply walk to the library.",
+        },
+        {
+            "term": "Database",
+            "symbol": "((DB))",
+            "meaning": (
+                "The database is the durable system of record where all committed data ultimately lives. It is "
+                "the single source of truth that every service reads from and writes to, and it is designed to "
+                "survive crashes, restarts, and power failures so that data is never lost. When a service needs "
+                "to save something important, such as a new order or a payment confirmation, it writes to the "
+                "database inside a transaction, which is a small unit of work that either completes fully or "
+                "not at all, guaranteeing that the data always stays consistent even if a step fails halfway "
+                "through. The database also enforces structure and relationships between data, provides indexes "
+                "that make lookups fast, and keeps backups so the system can be restored after a disaster. In "
+                "most designs here, the database is a relational engine such as PostgreSQL or MySQL, chosen "
+                "because the business operations are naturally tabular and transactional. Because the database "
+                "is so important, it is protected in several ways: the cache reduces the number of reads it has "
+                "to serve, read replicas provide extra capacity for read-only traffic, and automated backups "
+                "plus point-in-time recovery guard against data loss. Scaling a database is harder than scaling "
+                "ordinary services, which is why the whole design carefully minimizes pressure on it."
+            ),
+            "analogy": "Think of a bank vault. It is the single, authoritative copy of the truth that everyone consults, it is kept safe and backed up, and nobody would ever treat a quick note on a desk as a replacement for it.",
+        },
+        {
+            "term": "Queue",
+            "symbol": "{}",
+            "meaning": (
+                "A queue is a staging area for work that does not need to be completed before the user gets a "
+                "reply. When the system needs to perform a slow but non-urgent task, such as sending a "
+                "confirmation email, generating a weekly report, processing a payment settlement, or pushing a "
+                "notification, it does not make the user wait for that work to finish. Instead, it drops a "
+                "message describing the task into the queue and immediately returns a response to the user, "
+                "telling them that the action has been accepted and is being processed. Behind the scenes, one "
+                "or more background workers continuously pull messages out of the queue whenever they have "
+                "capacity and execute the tasks. This has two major benefits. First, it makes the user "
+                "experience fast and consistent: the request returns in tens of milliseconds no matter how "
+                "heavy the background work is. Second, it smooths out bursts of traffic: when thousands of "
+                "tasks arrive at once, they simply line up in the queue and are processed gradually, so the "
+                "system never collapses under a spike. Common technologies include RabbitMQ, Kafka, and SQS. "
+                "A well-designed queue also guarantees that messages are not lost and that tasks are retried "
+                "until they succeed."
+            ),
+            "analogy": "Think of a post office sorting line. You drop your parcel into the line and walk away; you do not wait for it to be delivered, and the post office works through the pile at its own steady pace.",
+        },
+        {
+            "term": "External Provider",
+            "symbol": "(Cloud)",
+            "meaning": (
+                "An external provider is a third-party system, run by another company, that your architecture "
+                "calls out to when it needs a service you do not build yourself. Common examples are payment "
+                "processors like Stripe or PayPal, identity and login providers like Auth0, email and SMS "
+                "services like Twilio, and push-notification services. These providers are extremely useful "
+                "because they give you battle-tested, secure functionality without you having to build or "
+                "operate it. However, they are also the riskiest part of the architecture, because you have no "
+                "control over their availability or speed; the network between you and them can also fail or "
+                "become slow. For this reason, every call to an external provider is carefully protected. A "
+                "timeout ensures the call gives up after a reasonable wait instead of hanging forever. A retry "
+                "strategy resends the request if the first attempt fails, so a temporary blip does not cause "
+                "permanent failure. A circuit breaker tracks repeated failures and, after a threshold, "
+                "immediately fails fast without even attempting the call, giving the provider time to recover "
+                "and shielding your own users from a slow dependency. Payments and other sensitive operations "
+                "are also made idempotent so a retried call cannot charge a customer twice."
+            ),
+            "analogy": "Think of a courier company. You hand the parcel over and set a reasonable wait; if the courier is slow or unreachable, you give up after that wait and try again later instead of waiting forever.",
+        },
+        {
+            "term": "Load Balancer",
+            "symbol": "(<> —)",
+            "meaning": (
+                "A load balancer is a distributor that sits in front of several identical copies of a service "
+                "and spreads incoming requests across them evenly. Its purpose is to make sure no single server "
+                "becomes overloaded while others sit idle. When a request arrives, the load balancer picks one "
+                "of the healthy copies using a strategy such as round-robin, which simply cycles through the "
+                "servers one by one, or least-connections, which sends the request to whichever server is "
+                "currently handling the fewest active requests. Beyond distributing traffic, the load balancer "
+                "also performs health checks: it periodically pings each server, and if one stops responding "
+                "correctly, the balancer removes it from the rotation and stops sending it new traffic, "
+                "allowing it to recover or be replaced without users noticing. When traffic grows, the "
+                "operations team adds more server copies, and the load balancer automatically starts using them, "
+                "which is the essence of horizontal scaling. Because the load balancer is itself a single "
+                "point in the path, production systems typically run two of them in an active-passive pair so "
+                "that even the balancer is redundant. Load balancers operate at the network layer, the "
+                "application layer, or both, and are offered as managed services by all major cloud providers."
+            ),
+            "analogy": "Think of a restaurant host splitting diners among several waiters so that no single waiter is overwhelmed, and quietly reassigning tables if one waiter steps away.",
+        },
+        {
+            "term": "Authentication vs Authorization",
+            "symbol": "(ID card)",
+            "meaning": (
+                "Authentication and authorization are two different checks that every secure system performs, "
+                "and it is important to understand the difference between them. Authentication answers the "
+                "question 'Who are you?' It verifies a claimed identity using something the user knows, such as "
+                "a password, something they have, such as a security token, or something they are, such as a "
+                "fingerprint. In modern systems this usually happens once when the user logs in, and the system "
+                "then issues a signed token that the user sends with every subsequent request so it does not "
+                "have to ask for the password again. Authorization answers a separate question: 'Now that I "
+                "know who you are, what are you allowed to do?' It checks permissions against the user's role "
+                "and the resource being accessed, deciding whether the user may view a record, edit it, or "
+                "perform an administrative action. The two checks happen in a strict order: the system first "
+                "authenticates, then authorizes, and both must succeed before the gateway lets the request "
+                "through to the rest of the architecture. Getting this order wrong, or skipping either check, "
+                "is one of the most common causes of security breaches. Good designs also enforce authorization "
+                "at multiple layers so that even a compromised service cannot reach data it should not see."
+            ),
+            "analogy": "Think of a passport and a visa. Your passport proves who you are; your visa decides which countries you are actually allowed to enter. You cannot get a visa without first proving your identity.",
+        },
+        {
+            "term": "Horizontal Scaling",
+            "symbol": "(x2 boxes)",
+            "meaning": (
+                "Horizontal scaling means running more copies of a service to handle more traffic, rather than "
+                "making a single machine bigger and faster, which is called vertical scaling. It works because "
+                "the services in this design are stateless, meaning each copy does not hold private data in its "
+                "own memory; all lasting state lives in the shared database and cache. Because the copies are "
+                "interchangeable, a load balancer can simply distribute requests among however many copies "
+                "exist, and adding another copy is as easy as starting one more instance. This approach has two "
+                "huge advantages. First, it is effectively unlimited: when traffic doubles, you can double the "
+                "number of copies, whereas a single machine has a hard ceiling. Second, it improves reliability, "
+                "because if one copy crashes, the others keep serving traffic and the load balancer routes "
+                "around the failure. The one part of the system that cannot be trivially scaled this way is "
+                "the database, because copies of a database need to stay consistent with each other, which is "
+                "hard. That is exactly why the design adds a cache to absorb repeated reads and read replicas "
+                "to offload read traffic, protecting the database so the rest of the system can scale freely. "
+                "Horizontal scaling is the standard way modern cloud applications grow."
+            ),
+            "analogy": "Think of adding more checkout counters when the store gets busy, instead of trying to make a single cashier process customers faster. More counters, each handling part of the queue, means the whole store serves more people.",
+        },
+        {
+            "term": "Circuit Breaker",
+            "symbol": "(✂ line)",
+            "meaning": (
+                "A circuit breaker is a safety mechanism that protects your system when a dependency, such as a "
+                "slow service or an external provider, starts failing. It works like the breaker box in a house: "
+                "the system monitors how many calls to the dependency fail over time, and once the failure rate "
+                "passes a configured threshold, the breaker 'trips' and stops sending any new requests to that "
+                "dependency for a while. During the open period, requests fail fast immediately, or are served "
+                "from a cached fallback, instead of piling up in long timeouts that tie up threads and memory. "
+                "This is crucial because a dependency that is slow or down can otherwise create a cascading "
+                "failure: users keep making requests, the system keeps waiting on the broken dependency, "
+                "connections accumulate, and eventually the entire system runs out of resources and becomes "
+                "unavailable, even though the problem was only in one small part. After a short cooldown, the "
+                "breaker closes partway and lets a small trickle of test requests through; if they succeed, it "
+                "closes fully and normal traffic resumes, and if they fail, it opens again. This graceful "
+                "give-and-take lets a failing dependency recover in peace while keeping the rest of the system "
+                "healthy. Circuit breakers are a core technique of resilient, production-grade designs."
+            ),
+            "analogy": "Think of the power breaker in a house. When a shorted wire starts to overheat, the breaker cuts the circuit so the fire never starts, and you can safely fix the wire before turning everything back on.",
+        },
+        {
+            "term": "Read Replica",
+            "symbol": "((DB) copy)",
+            "meaning": (
+                "A read replica is a live copy of the database that exists solely to serve read-only traffic. "
+                "In this design, writes, which create or change data, always go to the primary database, the "
+                "single authoritative copy. Reads, which simply fetch existing data, are then fanned out across "
+                "one or more replicas, each of which holds an up-to-date copy of the data that is continuously "
+                "synchronized from the primary. This separation is powerful because most applications are "
+                "heavily read-biased: there might be ten reads for every one write. If all of those reads had "
+                "to hit the same primary, the database would quickly become the bottleneck of the whole "
+                "system, since it can only process a limited number of queries per second. By distributing "
+                "reads across several replicas, the system multiplies its read capacity without making the "
+                "primary any larger. The tradeoff is that replicas are slightly behind the primary, usually by "
+                "milliseconds, because the synchronization is asynchronous, so the design routes only "
+                "non-critical reads to replicas while time-sensitive operations, such as reading the order you "
+                "just placed, read from the primary to guarantee the freshest data. Read replicas are one of "
+                "the most cost-effective ways to scale a database."
+            ),
+            "analogy": "Think of photocopies of a master ledger. The original stays safe in the office and only the person making changes touches it, while the front desk answers questions from the photocopies, which are never more than a few moments out of date.",
+        },
+        {
+            "term": "Idempotency",
+            "symbol": "(↻ repeat-safe)",
+            "meaning": (
+                "Idempotency is the property that makes an operation safe to perform more than once. In a "
+                "distributed system, requests are routinely retried: a network timeout might cause the client "
+                "to resend the same request, the user might double-click a button, or a background worker might "
+                "attempt a task again after a crash. Without idempotency, these retries can cause serious "
+                "problems, the most obvious being a customer charged twice for the same purchase, or a record "
+                "duplicated. An idempotent operation avoids this by ensuring that the first request does the "
+                "actual work and records a unique identifier, such as an idempotency key or the order's "
+                "reference number, and any repeated request carrying the same identifier is detected and "
+                "simply returns the already-known result without repeating the work. The system usually "
+                "implements this by storing the key along with the response for a window of time, and checking "
+                "it before applying any change. This is essential for anything with real-world consequences, "
+                "especially payments, where 'apply the charge exactly once' is a hard requirement, but it also "
+                "protects order creation, email sending, and other actions. Well-designed APIs expose this "
+                "explicitly, letting the caller provide a key, so that retries become completely harmless "
+                "instead of a source of bugs."
+            ),
+            "analogy": "Think of pressing the elevator button twice. You press it again out of impatience, but the elevator still takes you to the same floor exactly once, because the system recognizes it is the same request.",
+        },
     ]
 
     analogies = [

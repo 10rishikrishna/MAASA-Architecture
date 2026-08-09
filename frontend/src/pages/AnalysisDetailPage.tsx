@@ -400,32 +400,14 @@ export default function AnalysisDetailPage() {
       <div className="detail-content">
         {activeTab === 'overview' && (
           <div className="tab-content">
-            {/* Story Mode Card if enabled */}
+            {/* Story Mode narrative if enabled */}
             {explanationMode === 'story' && archDesign.story_mode && (
-              <SectionCard title="Architecture Story Mode 🎬" icon={Film} className="full-width story-card fade-in">
+              <SectionCard title="Architecture Story Mode 🎬 — the whole journey in plain language" icon={Film} className="full-width story-card fade-in">
                 <div className="story-content" dangerouslySetInnerHTML={{ __html: archDesign.story_mode.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
               </SectionCard>
             )}
 
-            {/* Basic ELI5 Terms & Symbols Decoder Grid */}
-            {explanationLevel === 'basic' && archDesign.eli5_terms && (
-              <SectionCard title="Terms & Diagram Symbols Decoder 🟢 (ELI5 Beginner Guide)" icon={HelpCircle} className="full-width eli5-card fade-in">
-                <p className="text-sm text-secondary mb-3">Here is what every term, arrow, shape, and symbol in your architecture diagram means:</p>
-                <div className="eli5-grid">
-                  {archDesign.eli5_terms.map((item: any, i: number) => (
-                    <div key={i} className="eli5-item">
-                      <div className="eli5-item-header">
-                        <span className="eli5-term">{item.term}</span>
-                        <span className="badge badge-accent">{item.symbol}</span>
-                      </div>
-                      <p className="eli5-meaning"><strong>Meaning:</strong> {item.meaning}</p>
-                      <p className="eli5-analogy"><strong>Analogy:</strong> {item.analogy}</p>
-                    </div>
-                  ))}
-                </div>
-              </SectionCard>
-            )}
-
+            {/* Business problem + metadata (context, not explanation) */}
             <div className="grid-2">
               <SectionCard title="Business Problem" icon={FileText}>
                 <p className="problem-text">{analysis.business_problem}</p>
@@ -440,35 +422,66 @@ export default function AnalysisDetailPage() {
               </SectionCard>
             </div>
 
-            {analysis.architecture_model && (
-              <>
-                <div className="grid-2">
-                  <SectionCard title="Domain & Architecture" icon={GitBranch}>
-                    <div className="kv-grid">
-                      <KeyValueRow label="Domain" value={analysis.architecture_model.domain || '—'} />
-                      <KeyValueRow label="Pattern" value={analysis.architecture_model.architecture?.pattern || '—'} />
-                      <KeyValueRow label="System Type" value={analysis.architecture_model.architecture?.system_type || '—'} />
-                      <KeyValueRow label="Tier" value={analysis.architecture_model.architecture_tier || '—'} />
-                      <KeyValueRow label="Corrections" value={analysis.architecture_model.correction_iterations ?? 0} />
+            {/* ELI5 beginner guide - readable prose, not cramped boxes */}
+            {explanationLevel === 'basic' && archDesign.eli5_terms && (
+              <SectionCard title="🟢 Beginner Guide — every term and symbol, explained in plain language" icon={HelpCircle} className="full-width eli5-card fade-in">
+                <p className="text-sm text-secondary mb-3">
+                  If this is your first architecture diagram, start here. Below is every term and symbol used in the
+                  design, each explained simply and with a real-life analogy.
+                </p>
+                <div className="eli5-guide">
+                  {archDesign.eli5_terms.map((item: any, i: number) => (
+                    <div key={i} className="eli5-entry">
+                      <div className="eli5-entry-head">
+                        <h5>{item.term}</h5>
+                        <span className="badge badge-accent">{item.symbol}</span>
+                      </div>
+                      <p className="eli5-meaning"><strong>What it is:</strong> {item.meaning}</p>
+                      <p className="eli5-analogy"><strong>Think of it like:</strong> {item.analogy}</p>
                     </div>
-                  </SectionCard>
-                  <SectionCard title="Workload & Review" icon={Zap}>
-                    <div className="kv-grid">
-                      <KeyValueRow label="Avg Throughput" value={`${analysis.architecture_model.performance?.workload?.avg_requests_per_second ?? '—'} req/s`} />
-                      <KeyValueRow label="Peak Throughput" value={`${analysis.architecture_model.performance?.workload?.peak_requests_per_second ?? '—'} req/s`} />
-                      <KeyValueRow label="Concurrency" value={analysis.architecture_model.performance?.workload?.expected_concurrency ?? '—'} />
-                      <KeyValueRow label="Complexity" value={`${analysis.architecture_model.performance?.workload?.complexity_score ?? '—'}/100`} />
-                      <KeyValueRow label="Review Score" value={analysis.architecture_model.review?.overall_score != null ? `${analysis.architecture_model.review.overall_score}/100` : '—'} />
-                    </div>
-                  </SectionCard>
+                  ))}
                 </div>
-                {analysis.architecture_model.overview && (
-                  <SectionCard title="Executive Overview" icon={BookOpen} className="full-width">
-                    <p className="problem-text">{analysis.architecture_model.overview}</p>
-                  </SectionCard>
-                )}
-              </>
+              </SectionCard>
             )}
+
+            {/* Executive overview (LLM summary) if present */}
+            {analysis.architecture_model?.overview && (
+              <SectionCard title="Executive Overview" icon={BookOpen} className="full-width">
+                <p className="problem-text">{analysis.architecture_model.overview}</p>
+              </SectionCard>
+            )}
+
+            {/* The detailed explanation - the main content, driven by explanation mode */}
+            {(() => {
+              const explained =
+                analysis.architecture_model?.overview_explained ??
+                analysis.architecture_design?.explanations?.overview_explained ??
+                [];
+              if (!explained.length) return null;
+              return (
+                <SectionCard
+                  title={explanationMode === 'story' ? '📖 The Complete Walkthrough (how every part works)' : '📘 Detailed Explanation — every part of the design, in order'}
+                  icon={BookOpen}
+                  className="full-width fade-in"
+                >
+                  <p className="text-sm text-secondary mb-3">
+                    Read these sections top to bottom: each one explains <em>why</em> a choice was made and <em>how</em> it
+                    works, in plain language — from the scale the system is built for, through the components and data,
+                    to security, deployment, performance and risks.
+                  </p>
+                  <div className="deep-overview">
+                    {explained.map((sec: any, i: number) => (
+                      <div key={i} className="deep-section">
+                        <h4>{sec.title}</h4>
+                        {sec.paragraphs.map((p: string, j: number) => (
+                          <p key={j} className="deep-para" dangerouslySetInnerHTML={{ __html: renderMarkdown(p) }} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+              );
+            })()}
 
             {analysis.diagrams?.mermaid && (
               <SectionCard title="System Architecture Diagram" icon={GitBranch} className="full-width">
@@ -520,18 +533,18 @@ export default function AnalysisDetailPage() {
               </SectionCard>
             )}
 
-            {/* Basic ELI5 Terms Decoder */}
+            {/* Basic ELI5 Terms Decoder - readable guide */}
             {explanationLevel === 'basic' && archDesign.eli5_terms && (
               <SectionCard title="Terms & Diagram Symbols Decoder 🟢" icon={HelpCircle} className="full-width eli5-card fade-in">
-                <div className="eli5-grid">
+                <div className="eli5-guide">
                   {archDesign.eli5_terms.map((item: any, i: number) => (
-                    <div key={i} className="eli5-item">
-                      <div className="eli5-item-header">
-                        <span className="eli5-term">{item.term}</span>
+                    <div key={i} className="eli5-entry">
+                      <div className="eli5-entry-head">
+                        <h5>{item.term}</h5>
                         <span className="badge badge-accent">{item.symbol}</span>
                       </div>
-                      <p className="eli5-meaning"><strong>Meaning:</strong> {item.meaning}</p>
-                      <p className="eli5-analogy"><strong>Analogy:</strong> {item.analogy}</p>
+                      <p className="eli5-meaning"><strong>What it is:</strong> {item.meaning}</p>
+                      <p className="eli5-analogy"><strong>Think of it like:</strong> {item.analogy}</p>
                     </div>
                   ))}
                 </div>
@@ -807,34 +820,6 @@ export default function AnalysisDetailPage() {
               </>
             ) : (
               <>
-            {/* Deep-Dive Overview: everything explained */}
-            {(() => {
-              const explained =
-                analysis.architecture_model?.overview_explained ??
-                analysis.architecture_design?.explanations?.overview_explained ??
-                [];
-              if (!explained.length) return null;
-              return (
-                <SectionCard title="Deep-Dive Overview: Everything Explained" icon={BookOpen} className="full-width fade-in">
-                  <p className="text-sm text-secondary mb-3">
-                    A guided walkthrough of every part of the design — pattern, scale, components, data, API,
-                    security, deployment, performance, review and risks — in plain language.
-                  </p>
-                  <div className="deep-overview">
-                    {explained.map((sec: any, i: number) => (
-                      <div key={i} className="deep-section">
-                        <h4>{sec.title}</h4>
-                        {sec.paragraphs.map((p: string, j: number) => (
-                          <p key={j} className="deep-para"
-                             dangerouslySetInnerHTML={{ __html: renderMarkdown(p) }} />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
-              );
-            })()}
-
             {analysis.diagrams?.mermaid && (
                   <SectionCard title="Mermaid Diagram" icon={GitBranch} className="full-width">
                     <MermaidBlock diagram={analysis.diagrams.mermaid} />

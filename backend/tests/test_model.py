@@ -127,7 +127,8 @@ class TestGeneratorScenarios:
         assert len(terms) >= 8
         for t in terms:
             assert t["term"] and t["meaning"] and t["analogy"]
-            assert len(t["meaning"]) > 80
+            word_count = len(t["meaning"].split())
+            assert word_count >= 150, f"{t['term']} only {word_count} words"
 
     def test_alternatives_include_two_and_three_tier(self):
         m = self._model("Build an e-commerce platform handling 100,000 orders per hour")
